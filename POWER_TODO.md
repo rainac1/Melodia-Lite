@@ -34,7 +34,10 @@
 
 ### P0：先保证可编译、行为可回归
 
-- [ ] 本地执行 `./gradlew :app:compileDebugKotlin :shared:compileKotlinMetadata`（当前环境 Gradle 发行包下载超时，未能本地编译）。
+- [x] 本地执行 `./gradlew :app:compileDebugKotlin :shared:compileKotlinMetadata`，构建成功。
+  - 本机通过腾讯镜像安装 Android SDK 36/36.1、build-tools 36.0.0、NDK 28.2.13676358、CMake 3.22.1，并用 Temurin JDK 21。
+  - Gradle 依赖通过 `/tmp/mirrors.gradle` 临时切换到阿里云 Maven 镜像。
+- [x] `./gradlew :app:testDebugUnitTest` 通过。
 - [ ] 清理 `FullPlayerScreen` 里遗留的空参数/回调：
   - `onLyricsFullScreenChange`
   - `onLyricsControlsVisibilityChange`
@@ -45,7 +48,7 @@
   - `PlayerViewModel` 的 `currentLyricIndex` / `activeLyricIndices` / `showMiniLyric` 兼容 stub
   - 同步删除 `VisibleInfoCards` / `FullPlayerInfoSection` / `MelodiaBottomBar` 中最后的歌词分支
 - [ ] 检查 `CapsuleSlider` 替换后的三个设置页 UI（播放、外观、本地音乐）行为是否与原来的滑块一致。
-- [ ] 跑一遍 Android 单元测试；歌词相关测试已删，剩余测试如引用旧字段需要修。
+- [x] 跑一遍 Android 单元测试；已通过。桌面端测试按你的要求不跑。
 
 ### P1：继续降低后台播放唤醒
 

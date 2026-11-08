@@ -766,7 +766,6 @@ private class MelodiaRenderersFactory(
         return DefaultAudioSink.Builder(context)
             .setEnableFloatOutput(true)
             .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
-            .setAudioTrackBufferSizeProvider(bufferSizeProvider)
             .setAudioOutputProvider(UsbAudioOutputProvider(systemOutput, usbAudio))
             .build()
     }
