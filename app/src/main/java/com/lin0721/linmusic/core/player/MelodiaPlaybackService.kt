@@ -25,11 +25,13 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaNotification
@@ -196,6 +198,9 @@ class MelodiaPlaybackService : MediaSessionService() {
         // 允许跨协议重定向（如 HTTPS 到 HTTP）
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
+            // 放宽超时，减少弱网下频繁重连带来的射频唤醒
+            .setConnectTimeoutMs(15_000)
+            .setReadTimeoutMs(30_000)
         val defaultDataSourceFactory = DefaultDataSource.Factory(this, httpDataSourceFactory)
 
         // 动态代理数据源，每次请求新数据源时获取最新配置并创建对应的源
@@ -233,10 +238,12 @@ class MelodiaPlaybackService : MediaSessionService() {
         }
         val primaryPlayer = ExoPlayer.Builder(this, MelodiaRenderersFactory(this, usbAudio))
             .setMediaSourceFactory(mediaSourceFactory)
+            .setLoadControl(buildLoadControl())
             .setHandleAudioBecomingNoisy(true)
             .build()
         val secondaryPlayer = ExoPlayer.Builder(this, MelodiaRenderersFactory(this, usbAudio))
             .setMediaSourceFactory(mediaSourceFactory)
+            .setLoadControl(buildLoadControl())
             .setHandleAudioBecomingNoisy(true)
             .build()
         val sessionPlayer = CrossfadePlayer(
@@ -725,6 +732,19 @@ class MelodiaPlaybackService : MediaSessionService() {
     }
 }
 
+// 单次尽量多缓冲，减少音频流反复拉起网络/射频的次数；32MB 上限避免无损/高解析曲目占用过多内存。
+private fun buildLoadControl(): DefaultLoadControl =
+    DefaultLoadControl.Builder()
+        .setBufferDurationsMs(
+            /* minBufferMs = */ 30_000,
+            /* maxBufferMs = */ 120_000,
+            /* bufferForPlaybackMs = */ 2_500,
+            /* bufferForPlaybackAfterRebufferMs = */ 5_000
+        )
+        .setTargetBufferBytes(32 * 1024 * 1024)
+        .setPrioritizeTimeOverSizeThresholds(false)
+        .build()
+
 // 输出层先交给 USB 独占判断，不能直出时走系统 AudioTrack；开启浮点输出让高精度源以浮点进入输出层，
 // 是否向解码器请求浮点由 UsbAudioOutputProvider 的格式支持声明决定
 @OptIn(UnstableApi::class)
@@ -733,12 +753,23 @@ private class MelodiaRenderersFactory(
     private val usbAudio: UsbAudioDeviceManager
 ) : DefaultRenderersFactory(context) {
 
-    override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioOutputPlaybackParams: Boolean): AudioSink =
-        DefaultAudioSink.Builder(context)
+    override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioOutputPlaybackParams: Boolean): AudioSink {
+        // 拉长 AudioTrack 缓冲，减少音频输出层的唤醒频率；PCM 1 秒，直通/硬件卸载 2 秒。
+        val bufferSizeProvider = DefaultAudioTrackBufferSizeProvider.Builder()
+            .setTargetPcmBufferDurationUs(1_000_000)
+            .setPassthroughBufferDurationUs(2_000_000)
+            .setOffloadBufferDurationUs(2_000_000)
+            .build()
+        val systemOutput = AudioTrackAudioOutputProvider.Builder(context)
+            .setAudioTrackBufferSizeProvider(bufferSizeProvider)
+            .build()
+        return DefaultAudioSink.Builder(context)
             .setEnableFloatOutput(true)
             .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
-            .setAudioOutputProvider(UsbAudioOutputProvider(AudioTrackAudioOutputProvider.Builder(context).build(), usbAudio))
+            .setAudioTrackBufferSizeProvider(bufferSizeProvider)
+            .setAudioOutputProvider(UsbAudioOutputProvider(systemOutput, usbAudio))
             .build()
+    }
 }
 
 // 音频卸载交给 DSP 解码；格式或设备不支持时 ExoPlayer 自动回退软件解码，播放中切换会重配音频输出

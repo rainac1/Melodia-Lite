@@ -99,7 +99,7 @@ class SettingsViewModel(
 
     val playWithOtherApps = settingsPreferences.playWithOtherApps.asState(false)
 
-    val audioOffload = settingsPreferences.audioOffload.asState(false)
+    val audioOffload = settingsPreferences.audioOffload.asState(true)
 
     val exclusiveOutput = settingsPreferences.exclusiveOutput.asState(false)
 
