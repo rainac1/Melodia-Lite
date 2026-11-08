@@ -17,7 +17,7 @@ data class SongPlaybackInfo(
     val gainDb: Double? = null
 )
 
-// 播放引擎数据仓储（core 共享能力，服务于 PlayerManager/FloatingLyricService 及多个域的推荐入口）
+// 播放引擎数据仓储（core 共享能力，服务于 PlayerManager 及多个域的推荐入口）
 interface PlaybackRepository {
 
     // 获取歌曲播放链接

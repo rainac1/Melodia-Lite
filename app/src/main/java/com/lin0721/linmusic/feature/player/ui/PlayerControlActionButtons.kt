@@ -87,12 +87,8 @@ fun PlayerActionRow(
                 "comments" -> MelodiaIconButton(onClick = onCommentsClick) {
                     Icon(Icons.AutoMirrored.Rounded.Comment, contentDescription = "评论", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
-                "lyrics" -> MelodiaIconButton(onClick = onLyricsClick) {
-                    Icon(Icons.Rounded.Subtitles, contentDescription = "全屏歌词", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
-                }
-                "lyricsSettings" -> MelodiaIconButton(onClick = onLyricsSettingsClick) {
-                    Icon(Icons.Rounded.Tune, contentDescription = "歌词设置", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
-                }
+                // 歌词功能已移除：插件布局声明这些按钮时直接跳过。
+                "lyrics", "lyricsSettings" -> Unit
             }
         }
     }

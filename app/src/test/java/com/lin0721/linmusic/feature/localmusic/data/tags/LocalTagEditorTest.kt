@@ -29,9 +29,9 @@ class LocalTagEditorTest {
     }
 
     @Test
-    fun `七个键都写入`() {
+    fun `六个键都写入`() {
         val form = LocalTagForm(
-            title = "A", artist = "B", album = "C", albumArtist = "D", year = "2023", trackNumber = "1", lyrics = "G"
+            title = "A", artist = "B", album = "C", albumArtist = "D", year = "2023", trackNumber = "1"
         )
         val result = buildTagPropertyMap(emptyMap(), form)
         assertEquals("A", result["TITLE"]?.get(0))
@@ -40,7 +40,6 @@ class LocalTagEditorTest {
         assertEquals("D", result["ALBUMARTIST"]?.get(0))
         assertEquals("2023", result["DATE"]?.get(0))
         assertEquals("1", result["TRACKNUMBER"]?.get(0))
-        assertEquals("G", result["LYRICS"]?.get(0))
     }
 
     @Test

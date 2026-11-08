@@ -12,6 +12,7 @@ import coil3.memory.MemoryCache
 import coil3.request.crossfade
 import com.lin0721.linmusic.core.download.DownloadWorkerFactory
 import com.lin0721.linmusic.core.AppEnvironment
+import com.lin0721.linmusic.core.AppVisibility
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.log.CrashHandler
 import com.lin0721.linmusic.core.log.init
@@ -40,6 +41,7 @@ import com.lin0721.linmusic.feature.source.plugin.LxPluginEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import okio.Path.Companion.toOkioPath
 import org.koin.android.ext.koin.androidContext
@@ -63,6 +65,7 @@ class MelodiaApplication : Application() {
         AppEnvironment.isDebug = BuildConfig.DEBUG
         AppLogger.init(this)
         CrashHandler.init(this)
+        AppVisibility.install(this)
 
         val imageLoader = ImageLoader.Builder(this)
             .memoryCache {
@@ -120,9 +123,10 @@ class MelodiaApplication : Application() {
         mediaClaim.start()
         LeapmotorSteeringControl(this, playbackController, onKeyReceived = mediaClaim::publishNow).register()
 
-        // 延迟几秒后台检查更新，避开启动关键路径；进程生命周期内只检查这一次
+        // 等界面真正可见后再检查更新：后台被媒体键/蓝牙拉起时不产生无谓网络唤醒。
         CoroutineScope(Dispatchers.IO).launch {
             launch { updateChecker.messages.collect(ToastManager::showToast) }
+            AppVisibility.foreground.first { it }
             delay(3000)
             updateChecker.checkForUpdate(manual = false)
         }

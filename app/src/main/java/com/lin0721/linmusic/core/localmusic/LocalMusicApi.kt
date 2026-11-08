@@ -6,6 +6,4 @@ import android.net.Uri
 interface LocalMusicApi {
 
     suspend fun coverUriFor(sourceUri: Uri): Uri?
-
-    suspend fun readLyrics(sourceUri: String): String?
 }

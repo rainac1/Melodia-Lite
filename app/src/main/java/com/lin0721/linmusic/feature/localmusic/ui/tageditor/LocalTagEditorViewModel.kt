@@ -30,8 +30,7 @@ val LocalTagEditorUiState.Editing.isDirty: Boolean
         album = original.album,
         albumArtist = original.albumArtist,
         year = original.year,
-        trackNumber = original.trackNumber,
-        lyrics = original.lyrics
+        trackNumber = original.trackNumber
     )
 
 private const val TAG = "LocalTagEditorVM"
@@ -86,8 +85,7 @@ class LocalTagEditorViewModel(
                 album = snapshot.album,
                 albumArtist = snapshot.albumArtist,
                 year = snapshot.year,
-                trackNumber = snapshot.trackNumber,
-                lyrics = snapshot.lyrics
+                trackNumber = snapshot.trackNumber
             )
             _uiState.value = LocalTagEditorUiState.Editing(
                 track = track,
@@ -113,7 +111,6 @@ class LocalTagEditorViewModel(
     fun updateAlbumArtist(albumArtist: String) = updateForm { it.copy(albumArtist = albumArtist) }
     fun updateYear(year: String) = updateForm { it.copy(year = year) }
     fun updateTrackNumber(trackNumber: String) = updateForm { it.copy(trackNumber = trackNumber) }
-    fun updateLyrics(lyrics: String) = updateForm { it.copy(lyrics = lyrics) }
 
     fun replaceCover(bytes: ByteArray) {
         _uiState.update { state ->

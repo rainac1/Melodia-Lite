@@ -25,7 +25,7 @@ import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.preferences.UiScale
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
-import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
+import com.lin0721.linmusic.core.ui.components.CapsuleSlider
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
@@ -108,7 +108,7 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                             fontSize = 12.sp
                         )
                         Spacer(modifier = Modifier.height(10.dp))
-                        LyricCapsuleSlider(
+                        CapsuleSlider(
                             value = displayPercent,
                             onValueChange = { pendingPercent = it },
                             valueRange = UiScale.MIN_PERCENT.toFloat()..UiScale.MAX_PERCENT.toFloat(),

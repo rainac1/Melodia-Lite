@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import com.lin0721.linmusic.core.comment.ui.CommentsPreviewCard
 import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
-import com.lin0721.linmusic.core.player.LyricsSource
 import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
 import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
@@ -233,19 +232,7 @@ private fun FullPlayerInfoCard(
     onSelectArtist: (Int) -> Unit
 ) {
     when (card) {
-        // 歌词卡在浅色页面里保持有色底白字
-        FullPlayerCard.LYRICS -> ImmersiveTheme(colors.base) {
-            LyricsCard(
-                lyrics = songState.lyrics,
-                currentIndex = currentLyricIndex,
-                isLoading = false,
-                base = colors.base,
-                animateMesh = animateLyricsMesh,
-                isAmll = songState.lyricsSource == LyricsSource.AMLL,
-                isQrc = songState.lyricsSource == LyricsSource.QQ && songState.lyrics.any { it.words.isNotEmpty() },
-                onOpenFullScreen = onOpenFullScreenLyrics
-            )
-        }
+        FullPlayerCard.LYRICS -> Unit
         FullPlayerCard.COMMENTS_PREVIEW -> CommentsPreviewCard(
             commentsState = commentsState,
             cardColor = MaterialTheme.colorScheme.surface,

@@ -108,7 +108,6 @@ import com.lin0721.linmusic.core.ui.theme.darken
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.plugin.LayoutTimeText
 import com.lin0721.linmusic.core.plugin.PlayerBindingState
-import com.lin0721.linmusic.feature.player.ui.MiniLyricLine
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.player.ui.deviceIcon
 import com.lin0721.linmusic.core.player.playSourceText
@@ -366,16 +365,7 @@ fun MiniPlayerCard(
                             }
                             LayoutNodeType.PROGRESS -> MiniPlayerProgress(currentPositionProvider, duration, nodeModifier)
                             LayoutNodeType.TIME -> LayoutTimeText(node, currentPositionProvider, duration, nodeModifier)
-                            LayoutNodeType.MINI_LYRIC -> Box(nodeModifier) {
-                                MiniLyricLine(
-                                    lyrics = pluginState.lyrics,
-                                    currentLyricIndex = pluginState.lyricIndex,
-                                    isPlaying = displayedIsPlaying,
-                                    horizontalPadding = 0.dp,
-                                    textAlign = node.textAlign,
-                                    marquee = node.marquee
-                                )
-                            }
+                            LayoutNodeType.MINI_LYRIC -> Box(nodeModifier) { }
                             else -> Unit
                         }
                     }

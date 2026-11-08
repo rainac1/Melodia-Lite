@@ -428,34 +428,7 @@ fun SongMoreOptionsSheet(
                     }
                 )
 
-                // 10. 播放页小歌词开关
-                if (!isPodcast) Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onToggleMiniLyric(!showMiniLyric) }
-                        .padding(horizontal = 20.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Subtitles,
-                        contentDescription = null,
-                        tint = MelodiaColors.TextPrimary.copy(alpha = 0.7f),
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(
-                        text = "播放页小歌词",
-                        color = MelodiaColors.TextPrimary,
-                        fontSize = 15.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    MelodiaSwitch(
-                        checked = showMiniLyric,
-                        onCheckedChange = onToggleMiniLyric
-                    )
-                }
+
         }
     }
 }

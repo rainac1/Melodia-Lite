@@ -128,30 +128,6 @@ fun LazyListScope.fullPlayerPlaybackSection(
         )
     }
 
-    item(key = "mini_lyric") {
-        AnimatedVisibility(
-            visible = showMiniLyric,
-            enter = expandVertically(
-                animationSpec = uiTween(300, easing = FastOutSlowInEasing)
-            ) + fadeIn(
-                animationSpec = uiTween(200)
-            ),
-            exit = shrinkVertically(
-                animationSpec = uiTween(300, easing = FastOutSlowInEasing)
-            ) + fadeOut(
-                animationSpec = uiTween(200)
-            )
-        ) {
-            MiniLyricLine(
-                lyrics = songState.lyrics,
-                currentLyricIndex = currentLyricIndex,
-                isPlaying = isPlaying,
-                onClick = onMiniLyricClick
-            )
-        }
-    }
-
-    fillGapItem(2)
 
     item(key = "progress") {
         // 播放器尚未拿到时长时退回歌曲详情里的时长
