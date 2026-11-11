@@ -116,15 +116,6 @@
             android:name="com.canhub.cropper.CropImageActivity"
             android:theme="@style/Theme.Melodia.Cropper" />
 
-        <receiver
-            android:name=".core.player.BluetoothReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
-            </intent-filter>
-        </receiver>
-
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

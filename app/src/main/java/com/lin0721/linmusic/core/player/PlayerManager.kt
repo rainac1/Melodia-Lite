@@ -19,6 +19,7 @@ import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloadManager
 import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.localmusic.LocalMusicApi
+import com.lin0721.linmusic.core.AppVisibility
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.source.ExternalTrackResolver
 import com.lin0721.linmusic.core.network.AppError
@@ -52,8 +53,9 @@ private val NETWORK_RETRY_DELAYS_MS = longArrayOf(2000L, 5000L, 10000L)
 // 队列拖拽排序的落盘合并窗口，覆盖一次连续拖拽的间隔
 private const val QUEUE_MOVE_SAVE_DEBOUNCE_MS = 400L
 
-// 播放中自动持久化进度的周期，覆盖直接划掉应用强退场景
-private const val PERIODIC_STATE_SAVE_INTERVAL_MS = 3000L
+// 自动持久化进度的周期：前台 30 秒，后台 60 秒。暂停/退出时另有即时保存。
+private const val FOREGROUND_STATE_SAVE_INTERVAL_MS = 30_000L
+private const val BACKGROUND_STATE_SAVE_INTERVAL_MS = 60_000L
 
 // 预取到的下一首播放链接，按 songId 校验有效性
 private data class PrefetchedUrl(val songId: Long, val url: String, val level: String? = null)
@@ -247,28 +249,8 @@ class PlayerManager(
             }
         }
 
-        progress.start(
-            isPlaying = { _isPlaying.value },
-            onTick = { positionMs ->
-                val dur = progress.duration.value
-                val songId = _currentTrack.value?.mediaId?.toLongOrNull() ?: -1L
-                if (dur > 0L && songId != -1L) {
-                    val remainingMs = dur - positionMs
-                    roaming.onProgressTick(songId, remainingMs)
-                    maybePrefetchNextTrackUrl(remainingMs)
-                    maybeScheduleAutoCrossfade(songId, remainingMs, dur)
-                    maybeMeasureCurrentLoudness(songId)
-                    maybePremeasureNextLoudness(remainingMs)
-                    maybeCheckStreamCacheProgress(songId, positionMs, dur)
-                }
+        startProgressTracking()
 
-                val now = SystemClock.elapsedRealtime()
-                if (now - lastPeriodicSaveElapsedMs >= PERIODIC_STATE_SAVE_INTERVAL_MS) {
-                    lastPeriodicSaveElapsedMs = now
-                    saveState()
-                }
-            }
-        )
     }
 
     override fun setPositionUpdateInterval(intervalMs: Long) {
@@ -1105,8 +1087,38 @@ class PlayerManager(
         publishDisplayTrack()
     }
 
+    internal fun startProgressTracking() {
+        progress.start(
+            isPlaying = _isPlaying,
+            isForeground = AppVisibility.foreground,
+            onTick = { positionMs, foreground ->
+                val dur = progress.duration.value
+                val songId = _currentTrack.value?.mediaId?.toLongOrNull() ?: -1L
+                // 后台不做预取、漫游、响度分析、边听边存等会唤醒网络/CPU 的工作；
+                // 自然切歌仍由 ExoPlayer ENDED 兜底，不依赖这里的轮询。
+                if (foreground && dur > 0L && songId != -1L) {
+                    val remainingMs = dur - positionMs
+                    roaming.onProgressTick(songId, remainingMs)
+                    maybePrefetchNextTrackUrl(remainingMs)
+                    maybeScheduleAutoCrossfade(songId, remainingMs, dur)
+                    maybeMeasureCurrentLoudness(songId)
+                    maybePremeasureNextLoudness(remainingMs)
+                    maybeCheckStreamCacheProgress(songId, positionMs, dur)
+                }
+
+                val now = SystemClock.elapsedRealtime()
+                val interval = if (foreground) FOREGROUND_STATE_SAVE_INTERVAL_MS else BACKGROUND_STATE_SAVE_INTERVAL_MS
+                if (now - lastPeriodicSaveElapsedMs >= interval) {
+                    lastPeriodicSaveElapsedMs = now
+                    saveState()
+                }
+            }
+        )
+    }
+
     fun release() {
         reportPlayedTrack()
+        progress.stop()
         networkGuard.unregister()
         sleepTimer.cancel()
         activePlayJob?.cancel()
@@ -1259,7 +1271,9 @@ class PlayerManager(
         AppLogger.i(TAG, "播放状态变化: ${playbackStateName(playbackState)}")
         if (playbackState == Player.STATE_READY) {
             progress.updateDurationFromController()
-            playbackQueue.nextItemByMode()?.let { coverPreloader.preload(it.coverUrl) }
+            if (AppVisibility.foreground.value) {
+                playbackQueue.nextItemByMode()?.let { coverPreloader.preload(it.coverUrl) }
+            }
         }
         // 单曲循环由 ExoPlayer REPEAT_MODE_ONE 处理，不会到达 STATE_ENDED
         if (playbackState == Player.STATE_ENDED && playbackQueue.playMode.value != PlayMode.SINGLE_LOOP) {

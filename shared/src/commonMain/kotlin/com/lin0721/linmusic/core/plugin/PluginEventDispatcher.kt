@@ -86,7 +86,7 @@ class PluginEventDispatcher(
     }
 
     private companion object {
-        const val PROGRESS_INTERVAL_MS = 1_000L
+        const val PROGRESS_INTERVAL_MS = 5_000L
 
         fun songJson(nowPlaying: NowPlaying?): JsonElement = nowPlaying?.let {
             buildJsonObject {

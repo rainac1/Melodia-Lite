@@ -41,9 +41,9 @@ android {
         applicationId = "com.lin0721.linmusic"
         minSdk = 26
         targetSdk = 36
-        // CI 打 tag 发布时通过 -PreleaseVersionCode/-PreleaseVersionName 覆盖，本地构建保持默认值
-        versionCode = (project.findProperty("releaseVersionCode") as String?)?.toIntOrNull() ?: 1
-        versionName = (project.findProperty("releaseVersionName") as String?) ?: "1.0.0"
+        // CI 打 tag 发布时通过 -PreleaseVersionCode/-PreleaseVersionName 覆盖，本地构建使用 fork 默认版本
+        versionCode = (project.findProperty("releaseVersionCode") as String?)?.toIntOrNull() ?: 2010199
+        versionName = (project.findProperty("releaseVersionName") as String?) ?: "2.1.1-rainac.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

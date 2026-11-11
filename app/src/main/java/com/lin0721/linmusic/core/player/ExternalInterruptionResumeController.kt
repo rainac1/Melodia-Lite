@@ -224,7 +224,8 @@ class ExternalInterruptionResumeController(
         pollingJob?.cancel()
         pollingJob = scope?.launch {
             while (activeSession != null) {
-                delay(1000L)
+                // 轮询只是兜底：主要依赖 AudioPlaybackCallback，因此放宽到 3 秒一次。
+                delay(3000L)
                 if (activeSession != null) {
                     checkAndScheduleResume()
                 }

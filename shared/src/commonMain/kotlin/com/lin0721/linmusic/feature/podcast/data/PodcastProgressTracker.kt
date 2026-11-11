@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 
 private const val TAG = "PodcastProgressTracker"
-private const val SAMPLE_INTERVAL_MS = 1_000L
+private const val SAMPLE_INTERVAL_MS = 5_000L
 
 // 监听播放器，把播客节目的收听进度写入本地
 class PodcastProgressTracker(

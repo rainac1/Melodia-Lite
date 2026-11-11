@@ -247,9 +247,9 @@ class SettingsPreferences(
         }
     }
 
-    // 硬件音频解码 Flow
+    // 硬件音频解码 Flow：默认开启，设备不支持时 ExoPlayer 会自动回退软件解码
     val audioOffload: Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[KEY_AUDIO_OFFLOAD] ?: false
+        prefs[KEY_AUDIO_OFFLOAD] ?: true
     }
 
     // 与切歌交叉淡化、独占输出互斥
