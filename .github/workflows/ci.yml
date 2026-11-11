@@ -1,10 +1,9 @@
 name: CI
 
+# 任何 push（任意分支、任意 tag）都不再触发 CI；仅保留 PR 与手动触发
 on:
-  push:
-    branches: [main, dev]
   pull_request:
-    branches: [main, dev]
+    branches: [main]
   workflow_dispatch:
 
 # 同一分支上的新推送取消仍在跑的旧任务，避免排队浪费
