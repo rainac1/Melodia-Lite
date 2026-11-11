@@ -125,7 +125,7 @@ fun PluginSettingSection(repository: PluginRepository) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
         Text("插件（实验性）", color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
         Text(
-            "导入插件包，扩展播放器布局、页面、音源与歌词源",
+            "导入插件包，扩展播放器布局、页面与音源",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp
         )

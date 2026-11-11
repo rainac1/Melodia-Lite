@@ -22,7 +22,6 @@ object PluginParser {
 
     private val ENTRY_ID_PATTERN = Regex("^[a-z0-9][a-z0-9_-]{0,31}$")
     private val API_VERSION_PATTERN = Regex("^(\\d{1,4})\\.(\\d{1,4})$")
-    private val CLASS_NAME_PATTERN = Regex("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)+$")
     private val HOST_PATTERN = Regex("^(\\*\\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$")
     private const val MAX_ID_LENGTH = 100
     private const val MAX_NAME_LENGTH = 40
@@ -31,11 +30,6 @@ object PluginParser {
     private const val MAX_HOSTS = 20
     private const val MAX_ENTRIES = 16
     private const val MAX_OPTIONS = 32
-    private const val MAX_BACKDROP_FRAMES = 32
-    private const val MAX_BACKDROP_FPS = 30
-    private const val DEFAULT_BACKDROP_FPS = 12
-    private const val DEFAULT_BACKDROP_DIM = 0.3f
-    private const val DEFAULT_BACKDROP_PANE_OPACITY = 0.6f
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -69,7 +63,7 @@ object PluginParser {
         val warnings = mutableListOf<String>()
         val compatibility = if (format >= 2) parseCompatibility(root, platform, warnings) else Compatibility()
         compatibility.failure?.let { return PluginParseResult.Failure(it) }
-        val permissions = parsePermissions(root["permissions"], warnings).withKind(compatibility.kind, warnings)
+        val permissions = parsePermissions(root["permissions"], warnings)
         val hosts = parseHosts(root["network"], warnings)
         if (PluginPermission.NETWORK in permissions && hosts.isEmpty()) {
             return PluginParseResult.Failure("申请了网络权限，但 network.hosts 里没有列出允许访问的域名")
@@ -80,11 +74,10 @@ object PluginParser {
 
         val contributes = when (val value = root["contributes"]) {
             null -> PluginContributions()
-            is JsonObject -> parseContributions(value, warnings, format, compatibility.kind)
+            is JsonObject -> parseContributions(value, warnings, format)
             else -> return PluginParseResult.Failure("contributes 不是对象")
         }
-        // 原生插件可以只在后台运行
-        if (contributes.isEmpty && compatibility.kind != PluginKind.NATIVE) return PluginParseResult.Failure("插件没有提供任何功能")
+        if (contributes.isEmpty) return PluginParseResult.Failure("插件没有提供任何功能")
         missingPermission(contributes, permissions)?.let { return PluginParseResult.Failure(it) }
 
         val manifest = PluginManifest(
@@ -101,8 +94,7 @@ object PluginParser {
             directory = directory,
             kind = compatibility.kind,
             platforms = compatibility.platforms,
-            apiVersion = compatibility.apiVersion,
-            main = compatibility.main
+            apiVersion = compatibility.apiVersion
         )
         return PluginParseResult.Success(manifest, warnings)
     }
@@ -111,16 +103,8 @@ object PluginParser {
         val kind: PluginKind = PluginKind.SANDBOX,
         val platforms: Set<PluginPlatform> = emptySet(),
         val apiVersion: String? = null,
-        val main: String? = null,
         val failure: String? = null
     )
-
-    // native 权限只跟插件类型走，不能靠清单自行声明
-    private fun Set<PluginPermission>.withKind(kind: PluginKind, warnings: MutableList<String>): Set<PluginPermission> = when {
-        kind == PluginKind.NATIVE -> this + PluginPermission.NATIVE
-        PluginPermission.NATIVE in this -> (this - PluginPermission.NATIVE).also { warnings += "沙盒插件不能申请 native 权限，已忽略" }
-        else -> this
-    }
 
     // format 2 起才有这些字段
     private fun parseCompatibility(root: JsonObject, platform: PluginPlatform, warnings: MutableList<String>): Compatibility {
@@ -128,22 +112,14 @@ object PluginParser {
             null -> PluginKind.SANDBOX
             else -> PluginKind.fromKey(key) ?: return Compatibility(failure = "未知的插件类型 $key")
         }
-        if (kind == PluginKind.NATIVE && platform == PluginPlatform.ANDROID) return Compatibility(failure = "Android 不支持原生插件")
         val platforms = parsePlatforms(root["platforms"], warnings)
         if (platforms.isNotEmpty() && platform !in platforms) {
             return Compatibility(failure = "插件不支持当前平台")
         }
-        val main = root.string("main")?.trim()
-        if (kind == PluginKind.NATIVE && (main == null || !CLASS_NAME_PATTERN.matches(main))) {
-            return Compatibility(failure = "原生插件需要在 main 里写明入口类的完整类名")
-        }
         val apiVersion = root.string("apiVersion")?.trim()
-        if (apiVersion == null) {
-            if (kind == PluginKind.NATIVE) return Compatibility(failure = "原生插件需要声明 apiVersion")
-            return Compatibility(kind, platforms)
-        }
+        if (apiVersion == null) return Compatibility(kind, platforms)
         apiVersionFailure(apiVersion)?.let { return Compatibility(failure = it) }
-        return Compatibility(kind, platforms, apiVersion, main.takeIf { kind == PluginKind.NATIVE })
+        return Compatibility(kind, platforms, apiVersion)
     }
 
     fun apiVersionFailure(apiVersion: String): String? {
@@ -173,8 +149,6 @@ object PluginParser {
     private fun missingPermission(contributes: PluginContributions, permissions: Set<PluginPermission>): String? = when {
         contributes.audioSources.isNotEmpty() && PluginPermission.AUDIO_SOURCE !in permissions ->
             "提供了音源，但没有申请 ${PluginPermission.AUDIO_SOURCE.key} 权限"
-        contributes.lyricsSources.isNotEmpty() && PluginPermission.LYRICS_SOURCE !in permissions ->
-            "提供了歌词源，但没有申请 ${PluginPermission.LYRICS_SOURCE.key} 权限"
         contributes.events.isNotEmpty() && PluginPermission.PLAYBACK_READ !in permissions ->
             "订阅了播放事件，但没有申请 ${PluginPermission.PLAYBACK_READ.key} 权限"
         contributes.contentSources.isNotEmpty() && PluginPermission.CONTENT_SOURCE !in permissions ->
@@ -205,7 +179,7 @@ object PluginParser {
         return hosts.take(MAX_HOSTS)
     }
 
-    private fun parseContributions(root: JsonObject, warnings: MutableList<String>, format: Int, kind: PluginKind): PluginContributions {
+    private fun parseContributions(root: JsonObject, warnings: MutableList<String>, format: Int): PluginContributions {
         val layouts = LinkedHashMap<String, PluginUiRef>()
         (root["playerLayouts"] as? JsonObject)?.forEach { (area, value) ->
             if (area !in PLAYER_LAYOUT_AREAS) {
@@ -219,11 +193,8 @@ object PluginParser {
                 warnings += "页面 $id 缺少标题，已忽略"
             }
             if ((item["compose"] as? JsonPrimitive)?.booleanOrNull == true) {
-                if (kind != PluginKind.NATIVE) return@parseEntries null.also { warnings += "页面 $id 用了 compose，只有原生插件支持，已忽略" }
-                return@parseEntries PluginPage(
-                    id, title.take(MAX_NAME_LENGTH), item.string("icon")?.trim()?.takeIf { it.isNotEmpty() },
-                    PluginUiRef.Inline(JsonObject(emptyMap())), PluginPagePlacement.SIDEBAR, compose = true
-                )
+                warnings += "页面 $id 用了 compose，当前版本不支持，已忽略"
+                return@parseEntries null
             }
             val ui = parseUiRef(item["ui"]) ?: return@parseEntries null.also { warnings += "页面 $id 的界面描述无效，已忽略" }
             val placementKey = item.string("placement")
@@ -237,12 +208,11 @@ object PluginParser {
             PluginPage(id, title.take(MAX_NAME_LENGTH), item.string("icon")?.trim()?.takeIf { it.isNotEmpty() }, ui, placement)
         }
         val audioSources = parseSources(root["audioSources"], "音源", warnings)
-        val lyricsSources = parseSources(root["lyricsSources"], "歌词源", warnings)
         val events = (root["events"] as? JsonArray)?.mapNotNullTo(LinkedHashSet()) { item ->
             val key = (item as? JsonPrimitive)?.takeIf { it.isString }?.content
             PluginEvent.fromKey(key.orEmpty()) ?: null.also { warnings += "未知事件 ${key ?: item}，已忽略" }
         }.orEmpty()
-        if (format < 2) return PluginContributions(layouts, pages, audioSources, lyricsSources, events)
+        if (format < 2) return PluginContributions(layouts, pages, audioSources, events)
         val commands = parseEntries(root["commands"], "命令", warnings) { item, id ->
             val title = item.string("title")?.trim()?.takeIf { it.isNotEmpty() } ?: return@parseEntries null.also {
                 warnings += "命令 $id 缺少标题，已忽略"
@@ -257,27 +227,9 @@ object PluginParser {
                 (item["search"] as? JsonPrimitive)?.booleanOrNull == true
             )
         }
-        val backdrops = parseEntries(root["backdrops"], "动态背景", warnings) { item, id -> parseBackdrop(item, id, kind, warnings) }
         return PluginContributions(
-            layouts, pages, audioSources, lyricsSources, events, commands, parseMenus(root["menus"], commands, warnings), settings, contentSources, backdrops,
+            layouts, pages, audioSources, events, commands, parseMenus(root["menus"], commands, warnings), settings, contentSources,
             layoutActions = (root["layoutActions"] as? JsonPrimitive)?.booleanOrNull == true
-        )
-    }
-
-    private fun parseBackdrop(item: JsonObject, id: String, kind: PluginKind, warnings: MutableList<String>): PluginBackdropEntry? {
-        val frames = (item["frames"] as? JsonArray).orEmpty().mapNotNull { frame ->
-            val path = (frame as? JsonPrimitive)?.takeIf { it.isString }?.content
-            path?.takeIf(PluginPaths::isAsset) ?: null.also { warnings += "动态背景 $id 的图片 ${path ?: frame} 无效，已忽略" }
-        }
-        if (frames.size > MAX_BACKDROP_FRAMES) warnings += "动态背景 $id 超过 $MAX_BACKDROP_FRAMES 帧，只保留前 $MAX_BACKDROP_FRAMES 帧"
-        if (frames.isEmpty() && kind == PluginKind.SANDBOX) return null.also { warnings += "动态背景 $id 没有图片，已忽略" }
-        return PluginBackdropEntry(
-            id,
-            item.string("name")?.trim()?.takeIf { it.isNotEmpty() }?.take(MAX_NAME_LENGTH) ?: id,
-            (item["fps"] as? JsonPrimitive)?.intOrNull?.coerceIn(1, MAX_BACKDROP_FPS) ?: DEFAULT_BACKDROP_FPS,
-            item.number("dim")?.coerceIn(0f, 1f) ?: DEFAULT_BACKDROP_DIM,
-            item.number("paneOpacity")?.coerceIn(0f, 1f) ?: DEFAULT_BACKDROP_PANE_OPACITY,
-            frames.take(MAX_BACKDROP_FRAMES)
         )
     }
 

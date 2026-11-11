@@ -24,7 +24,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.animation.core.spring as composeSpring
 import androidx.compose.animation.core.tween as composeTween
 
-// 界面过渡动画开关：关闭后过渡直接落到终点。歌词逐字高亮、歌词滚动与常驻的加载动画不走这里
+// 界面过渡动画开关：关闭后过渡直接落到终点。常驻的加载动画不走这里
 @Stable
 class UiMotion(initialEnabled: Boolean = true) {
     var enabled by mutableStateOf(initialEnabled)

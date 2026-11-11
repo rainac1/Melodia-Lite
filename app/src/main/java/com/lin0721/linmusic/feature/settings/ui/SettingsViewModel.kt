@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.BuildConfig
 import com.lin0721.linmusic.core.player.CrossfadePolicy
-import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricStyle
 import com.lin0721.linmusic.core.preferences.BottomBarItemSetting
 import com.lin0721.linmusic.core.preferences.BottomBarLayout
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -96,8 +95,6 @@ class SettingsViewModel(
 
     val downloadFolderUri = settingsPreferences.downloadFolderUri.asState(null)
 
-    val downloadLyricsEnabled = settingsPreferences.downloadLyricsEnabled.asState(true)
-
     val autoPlayNext = settingsPreferences.autoPlayNext.asState(true)
 
     val playWithOtherApps = settingsPreferences.playWithOtherApps.asState(false)
@@ -121,8 +118,6 @@ class SettingsViewModel(
     val mobileAlert = settingsPreferences.mobileAlert.asState(true)
 
     val useProxy = settingsPreferences.useProxy.asState(false)
-
-    val showDesktopLrc = settingsPreferences.showDesktopLrc.asState(false)
 
     val isLoggedIn = userPreferences.userProfile.map { it != null }.asState(false)
 
@@ -153,30 +148,6 @@ class SettingsViewModel(
     val uiAnimationsEnabled = settingsPreferences.uiAnimationsEnabled.asState(true)
 
     val playlistTrackIndexEnabled = settingsPreferences.playlistTrackIndexEnabled.asState(false)
-
-    val floatingLyricStyle = settingsPreferences.floatingLyricStyle.asState(FloatingLyricStyle(fontSizeSp = 14, backgroundAlpha = 70))
-
-    val floatingLyricLocked = settingsPreferences.floatingLyricLocked.asState(false)
-
-    val fullScreenLyricTextSize = settingsPreferences.fullScreenLyricTextSize.asState(22)
-
-    val fullScreenLyricAlignment = settingsPreferences.fullScreenLyricAlignment.asState("left")
-
-    val fullScreenLyricShowTranslation = settingsPreferences.fullScreenLyricShowTranslation.asState(true)
-
-    val fullScreenLyricSecondaryMode = settingsPreferences.fullScreenLyricSecondaryMode.asState("translation")
-
-    val fullScreenKaraokeAdvancedEffect = settingsPreferences.fullScreenKaraokeAdvancedEffect.asState(true)
-
-    val superLyricEnabled = settingsPreferences.superLyricEnabled.asState(false)
-
-    val lyricInfoEnabled = settingsPreferences.lyricInfoEnabled.asState(true)
-
-    val bluetoothLyricEnabled = settingsPreferences.bluetoothLyricEnabled.asState(false)
-
-    val lyriconEnabled = settingsPreferences.lyriconEnabled.asState(false)
-
-    val fluidCloudLyricEnabled = settingsPreferences.fluidCloudLyricEnabled.asState(false)
 
     val logLevel = settingsPreferences.logLevel.asState(if (BuildConfig.DEBUG) "DEBUG" else "WARN")
 
@@ -344,8 +315,6 @@ class SettingsViewModel(
     // null 表示重置为默认下载目录
     fun updateDownloadFolderUri(uri: String?) = launchSave { settingsPreferences.saveDownloadFolderUri(uri) }
 
-    fun updateDownloadLyricsEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveDownloadLyricsEnabled(enabled) }
-
     fun updateAudioCacheMaxSize(context: Context, size: Long) {
         viewModelScope.launch {
             settingsPreferences.saveAudioCacheMaxSize(size)
@@ -385,8 +354,6 @@ class SettingsViewModel(
 
     fun updateUseProxy(enabled: Boolean) = launchSave { settingsPreferences.saveUseProxy(enabled) }
 
-    fun updateShowDesktopLrc(enabled: Boolean) = launchSave { settingsPreferences.saveShowDesktopLrc(enabled) }
-
     fun updateShowLockscreen(enabled: Boolean) = launchSave { settingsPreferences.saveShowLockscreen(enabled) }
 
     fun updateCarMode(enabled: Boolean) = launchSave { settingsPreferences.saveCarMode(enabled) }
@@ -422,31 +389,6 @@ class SettingsViewModel(
     fun updateUiAnimationsEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveUiAnimationsEnabled(enabled) }
 
     fun updatePlaylistTrackIndexEnabled(enabled: Boolean) = launchSave { settingsPreferences.savePlaylistTrackIndexEnabled(enabled) }
-
-    fun updateFloatingLyricStyle(transform: (FloatingLyricStyle) -> FloatingLyricStyle) =
-        launchSave { settingsPreferences.saveFloatingLyricStyle(transform(settingsPreferences.floatingLyricStyle.first())) }
-
-    fun updateFloatingLyricLocked(locked: Boolean) = launchSave { settingsPreferences.saveFloatingLyricLocked(locked) }
-
-    fun updateFullScreenLyricTextSize(size: Int) = launchSave { settingsPreferences.saveFullScreenLyricTextSize(size) }
-
-    fun updateFullScreenLyricAlignment(alignment: String) = launchSave { settingsPreferences.saveFullScreenLyricAlignment(alignment) }
-    
-    fun updateFullScreenLyricShowTranslation(show: Boolean) = launchSave { settingsPreferences.saveFullScreenLyricShowTranslation(show) }
-    
-    fun updateFullScreenLyricSecondaryMode(mode: String) = launchSave { settingsPreferences.saveFullScreenLyricSecondaryMode(mode) }
-    
-    fun updateFullScreenKaraokeAdvancedEffect(enabled: Boolean) = launchSave { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
-
-    fun updateSuperLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveSuperLyricEnabled(enabled) }
-
-    fun updateLyricInfoEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyricInfoEnabled(enabled) }
-
-    fun updateBluetoothLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveBluetoothLyricEnabled(enabled) }
-
-    fun updateLyriconEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveLyriconEnabled(enabled) }
-
-    fun updateFluidCloudLyricEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveFluidCloudLyricEnabled(enabled) }
 
     fun updateAutoCheckUpdateEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveAutoCheckUpdateEnabled(enabled) }
 

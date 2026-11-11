@@ -17,7 +17,6 @@ body:
       options:
         - Android 手机
         - Android 平板
-        - Windows 桌面端
     validations:
       required: true
 

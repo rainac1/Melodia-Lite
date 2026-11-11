@@ -105,10 +105,8 @@ import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.SwipeCoverSpringSpec
 import com.lin0721.linmusic.core.ui.theme.darken
-import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.plugin.LayoutTimeText
 import com.lin0721.linmusic.core.plugin.PlayerBindingState
-import com.lin0721.linmusic.feature.player.ui.MiniLyricLine
 import com.lin0721.linmusic.feature.player.ui.PlayerViewModel
 import com.lin0721.linmusic.feature.player.ui.deviceIcon
 import com.lin0721.linmusic.core.player.playSourceText
@@ -366,16 +364,6 @@ fun MiniPlayerCard(
                             }
                             LayoutNodeType.PROGRESS -> MiniPlayerProgress(currentPositionProvider, duration, nodeModifier)
                             LayoutNodeType.TIME -> LayoutTimeText(node, currentPositionProvider, duration, nodeModifier)
-                            LayoutNodeType.MINI_LYRIC -> Box(nodeModifier) {
-                                MiniLyricLine(
-                                    lyrics = pluginState.lyrics,
-                                    currentLyricIndex = pluginState.lyricIndex,
-                                    isPlaying = displayedIsPlaying,
-                                    horizontalPadding = 0.dp,
-                                    textAlign = node.textAlign,
-                                    marquee = node.marquee
-                                )
-                            }
                             else -> Unit
                         }
                     }
@@ -824,11 +812,9 @@ fun MelodiaNavigationBar(
     }
 }
 
-// 插件迷你条用到的歌词与绑定状态；只在有插件布局时读取，和播放页共用同一个 PlayerViewModel
+// 插件迷你条用到的绑定状态；只在有插件布局时读取，和播放页共用同一个 PlayerViewModel
 private class MiniPluginState(
     val binding: PlayerBindingState,
-    val lyrics: List<LyricLine>,
-    val lyricIndex: Int,
     private val viewModel: PlayerViewModel
 ) {
     fun seekTo(positionMs: Long) = viewModel.seekToTime(positionMs)
@@ -850,12 +836,10 @@ private fun rememberMiniPluginState(
 ): MiniPluginState {
     val playerViewModel: PlayerViewModel = koinViewModel()
     val songState by playerViewModel.songDetailState.collectAsStateWithLifecycle()
-    val lyricIndex by playerViewModel.currentLyricIndex.collectAsStateWithLifecycle()
     val playMode by playerViewModel.playerManager.playMode.collectAsStateWithLifecycle()
     val playContext by playerViewModel.playerManager.playContext.collectAsStateWithLifecycle()
     val podcast by playerViewModel.podcastState.collectAsStateWithLifecycle()
     val qualityLabel = rememberPlaybackQualityLabel(playerViewModel, mediaId, isPodcast)
-    val lyrics = songState.lyrics
     return MiniPluginState(
         binding = PlayerBindingState(
             title = title,
@@ -866,11 +850,8 @@ private fun rememberMiniPluginState(
             playing = isPlaying,
             liked = isLiked,
             isPodcast = isPodcast,
-            hasLyrics = lyrics.isNotEmpty() && !(lyrics.size == 1 && lyrics[0].text == "纯音乐"),
             playMode = playMode
         ),
-        lyrics = lyrics,
-        lyricIndex = lyricIndex,
         viewModel = playerViewModel
     )
 }

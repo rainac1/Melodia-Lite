@@ -12,7 +12,6 @@
 
 - [ ] Android 手机
 - [ ] Android 平板
-- [ ] Windows 桌面端
 
 ## 改动
 
@@ -28,8 +27,7 @@
 
 已执行（与 CI 保持一致，勾选已通过项）：
 
-- [ ] `./gradlew :app:testDebugUnitTest :shared:desktopTest`
-- [ ] `./gradlew :desktopApp:compileKotlin`
+- [ ] `./gradlew :app:testDebugUnitTest`
 - [ ] `./gradlew :app:assembleRelease`
 
 手动回归的场景：

@@ -2,7 +2,6 @@ package com.lin0721.linmusic.core.preferences
 
 // key 与播放页 LazyColumn 的 item key 共用，改名会让已保存的配置失效
 enum class FullPlayerCard(val key: String, val title: String) {
-    LYRICS("lyrics", "歌词"),
     COMMENTS_PREVIEW("comments_preview", "评论"),
     SONG_DETAIL("song_detail", "歌曲百科"),
     MUSIC_MEMORY("music_memory", "回忆坐标"),
@@ -20,7 +19,7 @@ data class FullPlayerCardSetting(
     val visible: Boolean
 )
 
-// 持久化格式：`lyrics:1,comments_preview:0,...`，按用户排序依次排列，1 显示 / 0 隐藏
+// 持久化格式：`comments_preview:1,song_detail:0,...`，按用户排序依次排列，1 显示 / 0 隐藏
 object FullPlayerCardLayout {
 
     val DEFAULT: List<FullPlayerCardSetting> =

@@ -12,7 +12,7 @@ import com.lin0721.linmusic.core.ui.components.MelodiaButton
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
-// 播放页通用白底胶囊按钮（显示歌词、编辑卡片、恢复默认）
+// 播放页通用白底胶囊按钮（编辑卡片、恢复默认）
 @Composable
 fun PlayerCapsuleButton(
     text: String,

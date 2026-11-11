@@ -13,7 +13,6 @@ object PluginPrelude {
     const val MESSAGE_REGISTER = "register"
 
     const val KIND_AUDIO_SOURCE = "audioSource"
-    const val KIND_LYRICS_SOURCE = "lyricsSource"
     const val KIND_ACTION = "action"
     const val KIND_COMMAND = "command"
     const val KIND_CONTENT_SOURCE = "contentSource"
@@ -22,7 +21,7 @@ object PluginPrelude {
         (function() {
             var seq = 0;
             var pending = {};
-            var registry = { audioSource: {}, lyricsSource: {}, action: {}, command: {}, contentSource: {} };
+            var registry = { audioSource: {}, action: {}, command: {}, contentSource: {} };
             var listeners = {};
 
             function post(method, data) {
@@ -126,7 +125,6 @@ object PluginPrelude {
                 },
                 register: {
                     audioSource: function(name, impl) { register('$KIND_AUDIO_SOURCE', name, impl); },
-                    lyricsSource: function(name, impl) { register('$KIND_LYRICS_SOURCE', name, impl); },
                     action: function(name, handler) { register('$KIND_ACTION', name, handler); },
                     command: function(name, handler) { register('$KIND_COMMAND', name, handler); },
                     contentSource: function(name, impl) { register('$KIND_CONTENT_SOURCE', name, impl); }

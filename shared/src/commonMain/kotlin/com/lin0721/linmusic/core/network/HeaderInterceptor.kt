@@ -66,7 +66,7 @@ class HeaderInterceptor(
             
             val cookiesStr = requestCookies.joinToString("; ")
             val filteredCookies = cookiesStr.split("; ").filterNot { it.trim().startsWith("os=") }.joinToString("; ")
-            // 打卡上报（weblog）专用伪装：参考 scrobble.js 强制 os=osx，否则最近播放/听歌排行聚合层疑似只认桌面端来源
+            // 打卡上报（weblog）专用伪装：参考 scrobble.js 强制 os=osx，否则最近播放/听歌排行聚合层疑似只认 macOS 来源
             val osCookie = if (urlString.contains("/eapi/feedback/weblog")) {
                 "os=osx"
             } else {

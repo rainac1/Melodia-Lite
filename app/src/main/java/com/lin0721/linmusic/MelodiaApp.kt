@@ -79,7 +79,6 @@ import com.lin0721.linmusic.core.ui.components.MiniPlayerCard
 import com.lin0721.linmusic.core.ui.components.MiniPlayerLikeMode
 import com.lin0721.linmusic.core.ui.theme.skinBackdropRoot
 import com.lin0721.linmusic.core.ui.theme.uiTween
-import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
 import com.lin0721.linmusic.feature.recognition.service.PlaybackRecognitionState
 import com.lin0721.linmusic.feature.recognition.ui.RecognitionScreen
 import com.lin0721.linmusic.core.ui.theme.MelodiaPress
@@ -226,12 +225,6 @@ fun MelodiaApp() {
     LaunchedEffect(pendingRecognitionResult) {
         if (pendingRecognitionResult) showRecognition = true
     }
-    // 悬浮歌词的设置按钮：先进设置页，由设置页消费请求并展开歌词子菜单
-    val floatingLyricRequests: FloatingLyricRequests = koinInject()
-    val pendingLyricSettings by floatingLyricRequests.pendingOpenSettings.collectAsStateWithLifecycle()
-    LaunchedEffect(pendingLyricSettings) {
-        if (pendingLyricSettings) navigation.navigateTo(Screen.Settings)
-    }
     // 网页登录界面可见性状态
     var isLoginScreenVisible by remember { mutableStateOf(false) }
     // 侧边栏未登录入口触发的登录，侧栏可从任意页面拉出，登录界面挂在全局层
@@ -299,8 +292,6 @@ fun MelodiaApp() {
     // 原始系统栏高度，双卡片模式下两张卡片据此避让；此处在任何 consumeWindowInsets 之外，读到的是完整值
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navigationBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    var isLyricsFullScreen by remember { mutableStateOf(false) }
-    var isLyricsControlsVisible by remember { mutableStateOf(true) }
 
     val context = LocalContext.current
     val window = (context as? ComponentActivity)?.window
@@ -309,11 +300,7 @@ fun MelodiaApp() {
     }
 
     val isTabletImmersive = windowSizeClass == MelodiaWindowSizeClass.Expanded && tabletImmersiveMode
-    val shouldHideSystemBars = isTabletImmersive || if (usePanel) {
-        isLyricsFullScreen
-    } else {
-        isLyricsFullScreen && !isLyricsControlsVisible
-    }
+    val shouldHideSystemBars = isTabletImmersive
 
     DisposableEffect(shouldHideSystemBars, insetsController) {
         if (shouldHideSystemBars) {
@@ -620,7 +607,7 @@ fun MelodiaApp() {
             // 内容按卡片全高布局，只动画裁剪区域，避免 FullPlayerScreen 逐帧重排。
             // 全屏时朝内容区一侧推到距对侧屏幕边 sm 处，宽度只在布局阶段读进度
             if ((isPanelShown || hasPanelBeenShown) && usePanel) {
-                val panelEdgePadding = if (isLyricsFullScreen) 0.dp else MelodiaSpacing.sm
+                val panelEdgePadding = MelodiaSpacing.sm
                 val panelRadius = InfoCardRadius
                 Box(
                     modifier = Modifier
@@ -629,18 +616,14 @@ fun MelodiaApp() {
                         .then(if (isPanelShown) Modifier else Modifier.layout { _, _ -> layout(0, 0) {} })
                         .padding(
                             start = if (isPanelAtStart) panelEdgePadding else 0.dp,
-                            top = if (isLyricsFullScreen) 0.dp else statusBarTop,
+                            top = statusBarTop,
                             end = if (isPanelAtStart) 0.dp else panelEdgePadding,
-                            bottom = if (isLyricsFullScreen) 0.dp else navigationBarBottom
+                            bottom = navigationBarBottom
                         )
                         .layout { measurable, constraints ->
                             val sidebarWidthPx = panelWidth.roundToPx()
-                            val fullscreenWidthPx = if (isLyricsFullScreen) {
-                                constraints.maxWidth
-                            } else {
-                                constraints.maxWidth - MelodiaSpacing.sm.roundToPx()
-                            }
-                            val progress = if (isLyricsFullScreen) 1f else panelFullscreen.value.coerceIn(0f, 1f)
+                            val fullscreenWidthPx = constraints.maxWidth - MelodiaSpacing.sm.roundToPx()
+                            val progress = panelFullscreen.value.coerceIn(0f, 1f)
                             val width = (sidebarWidthPx + (fullscreenWidthPx - sidebarWidthPx) * progress)
                                 .roundToInt()
                                 .coerceAtLeast(sidebarWidthPx)
@@ -649,23 +632,18 @@ fun MelodiaApp() {
                         }
                         .fillMaxHeight()
                         .graphicsLayer {
-                            if (isLyricsFullScreen) {
-                                clip = false
-                                alpha = 1f
-                            } else {
-                                val progress = panelRise.value.coerceIn(0f, 1f)
-                                val miniBottom = size.height - MelodiaSpacing.sm.toPx()
-                                val miniTop = miniBottom - ExpandedBottomBarHeight.toPx()
-                                val radius = PanelRiseStartRadius.toPx() +
-                                    (panelRadius.toPx() - PanelRiseStartRadius.toPx()) * progress
-                                clip = true
-                                shape = PanelRevealShape(
-                                    top = miniTop * (1f - progress),
-                                    bottom = miniBottom + (size.height - miniBottom) * progress,
-                                    radius = radius
-                                )
-                                alpha = (progress / PanelRiseFadeFraction).coerceAtMost(1f)
-                            }
+                            val progress = panelRise.value.coerceIn(0f, 1f)
+                            val miniBottom = size.height - MelodiaSpacing.sm.toPx()
+                            val miniTop = miniBottom - ExpandedBottomBarHeight.toPx()
+                            val radius = PanelRiseStartRadius.toPx() +
+                                (panelRadius.toPx() - PanelRiseStartRadius.toPx()) * progress
+                            clip = true
+                            shape = PanelRevealShape(
+                                top = miniTop * (1f - progress),
+                                bottom = miniBottom + (size.height - miniBottom) * progress,
+                                radius = radius
+                            )
+                            alpha = (progress / PanelRiseFadeFraction).coerceAtMost(1f)
                         }
                 ) {
                     PlayerDockPanel(
@@ -698,8 +676,7 @@ fun MelodiaApp() {
                         onToggleFullscreen = { isPanelFullscreen = !isPanelFullscreen },
                         fullscreenProgress = { panelFullscreen.value },
                         // 与上面铺开宽度的计算一致：左右各留 sm
-                        fullscreenWidth = contentLayerWidth - MelodiaSpacing.sm * 2,
-                        onLyricsFullScreenChange = { isLyricsFullScreen = it }
+                        fullscreenWidth = contentLayerWidth - MelodiaSpacing.sm * 2
                     )
                 }
             }
@@ -747,11 +724,6 @@ fun MelodiaApp() {
                 }
                 playerSheet.animateTo(false, 0f)
             },
-            onLyricsFullScreenChange = {
-                isLyricsFullScreen = it
-                if (!it) isLyricsControlsVisible = true
-            },
-            onLyricsControlsVisibilityChange = { isLyricsControlsVisible = it },
             modifier = Modifier.zIndex(1f)
         )
 

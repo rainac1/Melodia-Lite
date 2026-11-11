@@ -16,14 +16,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lin0721.linmusic.core.player.LyricsSource
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.player.playSourceText
 import com.lin0721.linmusic.core.plugin.LayoutHeader
@@ -64,20 +61,16 @@ class FullPlayerLayoutParts(
     val currentKey: Any,
     val previousKey: Any?,
     val nextKey: Any?,
-    val currentLyricIndex: Int,
-    val isPlaying: Boolean,
     val playWhenReady: Boolean,
     val currentPositionProvider: () -> Long,
     val duration: Long,
     val playMode: PlayMode,
-    val animateLyricsMesh: Boolean,
     val connectedDevice: AudioDeviceInfo?,
     val qualityLabel: String?,
     val onToggleLike: () -> Unit,
     val onToggleSubscribe: () -> Unit,
     val onArtistClick: () -> Unit,
     val onAlbumClick: (() -> Unit)?,
-    val onMiniLyricClick: () -> Unit,
     val onSeek: (Long) -> Unit,
     val onTogglePlay: () -> Unit,
     val onPlayNext: () -> Unit,
@@ -87,18 +80,13 @@ class FullPlayerLayoutParts(
     val onToggleRepeat: () -> Unit,
     val onOutputDeviceClick: () -> Unit,
     val onQueueClick: () -> Unit,
-    val onShareClick: () -> Unit,
     val onMoreClick: () -> Unit,
-    val onOpenFullScreenLyrics: () -> Unit,
     val onClose: () -> Unit,
     val onToggleSidebarFullscreen: (() -> Unit)?,
     val isSidebarFullscreen: Boolean,
     val playContext: String?,
     val podcastRadioName: String,
     val onPlaylistClick: (() -> Unit)?,
-    val activeLyricIndices: Set<Int>,
-    val lyricPositionProvider: () -> Long,
-    val lyricsHighlightColor: Color,
     val sleepTimerActive: Boolean,
     val onSleepTimerClick: () -> Unit,
     val onCommentsClick: () -> Unit
@@ -114,7 +102,6 @@ class FullPlayerLayoutParts(
             playing = playWhenReady,
             liked = if (podcast.isPodcast) podcast.subscribed else songState.isLiked,
             isPodcast = podcast.isPodcast,
-            hasLyrics = songState.lyrics.isNotEmpty() && !(songState.lyrics.size == 1 && songState.lyrics[0].text == "纯音乐"),
             playMode = playMode
         )
     }
@@ -131,14 +118,12 @@ class FullPlayerLayoutParts(
             HostAction.SEEK_BACK -> onSeek((currentPositionProvider() - SEEK_STEP_MS).coerceAtLeast(0L))
             HostAction.TOGGLE_LIKE -> if (podcast.isPodcast) onToggleSubscribe() else onToggleLike()
             HostAction.CYCLE_PLAY_MODE -> if (playMode == PlayMode.LIST_LOOP) onToggleRepeat() else onToggleShuffle()
-            HostAction.OPEN_LYRICS -> onOpenFullScreenLyrics()
             HostAction.OPEN_QUEUE -> onQueueClick()
             HostAction.OPEN_COMMENTS -> onCommentsClick()
             HostAction.OPEN_SLEEP_TIMER -> onSleepTimerClick()
             HostAction.OPEN_MORE -> onMoreClick()
             HostAction.COLLAPSE -> onClose()
-            HostAction.PAGER_NEXT, HostAction.PAGER_PREVIOUS, HostAction.TOGGLE_NOW_PLAYING, HostAction.TOGGLE_LYRICS_VIEW,
-            HostAction.CLOSE_LYRICS, HostAction.OPEN_LYRICS_SETTINGS -> Unit
+            else -> Unit
         }
     }
 
@@ -198,17 +183,6 @@ class FullPlayerLayoutParts(
                 SongArtistText(artist, onArtistClick, Modifier, (15 * scale).sp)
             }
             LayoutNodeType.LIKE_BUTTON -> SongLikeButton(songState.isLiked, onToggleLike, podcast, onToggleSubscribe, modifier)
-            LayoutNodeType.MINI_LYRIC -> Box(modifier) {
-                MiniLyricLine(
-                    lyrics = songState.lyrics,
-                    currentLyricIndex = currentLyricIndex,
-                    isPlaying = isPlaying,
-                    onClick = onMiniLyricClick,
-                    horizontalPadding = 0.dp,
-                    textAlign = node.textAlign,
-                    marquee = node.marquee
-                )
-            }
             LayoutNodeType.PROGRESS -> Box(modifier) {
                 ProgressSection(
                     currentPositionProvider = currentPositionProvider,
@@ -237,48 +211,16 @@ class FullPlayerLayoutParts(
                 buttons = node.buttons,
                 onOutputDeviceClick = onOutputDeviceClick,
                 onQueueClick = onQueueClick,
-                onShareClick = onShareClick,
                 onMoreClick = onMoreClick,
                 connectedDevice = connectedDevice,
                 qualityLabel = qualityLabel,
                 modifier = modifier,
                 onSleepTimerClick = onSleepTimerClick,
                 sleepTimerActive = sleepTimerActive,
-                onCommentsClick = onCommentsClick,
-                onLyricsClick = onOpenFullScreenLyrics,
-                onLyricsSettingsClick = LocalLyricsPageSlots.current?.onOpenSettings ?: {}
+                onCommentsClick = onCommentsClick
             )
-            // 歌词卡在浅色页面里保持有色底白字
-            LayoutNodeType.LYRICS_CARD -> ImmersiveTheme(colors.base) {
-                Box(modifier) {
-                    LyricsCard(
-                        lyrics = songState.lyrics,
-                        currentIndex = currentLyricIndex,
-                        isLoading = false,
-                        base = colors.base,
-                        animateMesh = animateLyricsMesh,
-                        isAmll = songState.lyricsSource == LyricsSource.AMLL,
-                        isQrc = songState.lyricsSource == LyricsSource.QQ && songState.lyrics.any { it.words.isNotEmpty() },
-                        onOpenFullScreen = onOpenFullScreenLyrics
-                    )
-                }
-            }
             LayoutNodeType.TIME -> LayoutTimeText(node, currentPositionProvider, displayDuration, modifier)
-            LayoutNodeType.LYRICS_VIEW -> LocalLyricsPageSlots.current?.lyricsList?.invoke(modifier) ?: EmbeddedLyricsView(
-                lyrics = songState.lyrics,
-                currentIndex = currentLyricIndex,
-                activeIndices = activeLyricIndices,
-                isLoading = songState.isLyricsLoading,
-                highlightColor = lyricsHighlightColor,
-                currentPositionProvider = lyricPositionProvider,
-                isPlaying = isPlaying,
-                onSeek = onSeek,
-                modifier = modifier
-            )
-            // 歌词页里收起按钮关闭歌词页
-            LayoutNodeType.COLLAPSE_BUTTON -> LocalLyricsPageSlots.current?.let { slots ->
-                FullPlayerCollapseButtons(slots.onClose, null, false, modifier)
-            } ?: FullPlayerCollapseButtons(onClose, onToggleSidebarFullscreen, isSidebarFullscreen, modifier)
+            LayoutNodeType.COLLAPSE_BUTTON -> FullPlayerCollapseButtons(onClose, onToggleSidebarFullscreen, isSidebarFullscreen, modifier)
             LayoutNodeType.MORE_BUTTON -> FullPlayerMoreButton(onMoreClick, modifier)
             LayoutNodeType.SOURCE_LABEL -> FullPlayerSourceLabel(playContext, podcastRadioName, onPlaylistClick, modifier)
             else -> Unit
@@ -319,47 +261,6 @@ fun LazyListScope.fullPlayerPluginSection(
                     )
                 }
             }
-        }
-    }
-}
-
-// 歌词页里渲染插件布局时提供，lyricsView、收起按钮与歌词设置按钮改用歌词页的实现
-val LocalLyricsPageSlots = staticCompositionLocalOf<LyricsPageSlots?> { null }
-
-// 全屏歌词页的插件布局；关闭与歌词设置动作交给歌词页，其余照常
-@Composable
-fun LyricsPagePluginContent(spec: PlayerLayoutSpec, parts: FullPlayerLayoutParts, isLandscape: Boolean, slots: LyricsPageSlots) {
-    val base = parts.environment(spec.pluginId)
-    val latestSlots by rememberUpdatedState(slots)
-    val onAction = remember(base.onAction) {
-        { action: LayoutAction ->
-            when (action) {
-                LayoutAction.Host(HostAction.CLOSE_LYRICS) -> latestSlots.onClose()
-                LayoutAction.Host(HostAction.OPEN_LYRICS_SETTINGS) -> latestSlots.onOpenSettings()
-                else -> base.onAction(action)
-            }
-        }
-    }
-    val environment = base.copy(controlsVisible = slots.controlsVisible, onAction = onAction)
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val root = spec.select(maxWidth.value, isLandscape)
-        CompositionLocalProvider(
-            LocalLayoutCoverColors provides parts.coverColors,
-            LocalLayoutEnvironment provides environment,
-            LocalLyricsPageSlots provides slots
-        ) {
-            PlayerLayoutView(root, Modifier.fillMaxSize(), parts.binding::prepare) { node, modifier ->
-                parts.Component(node, modifier)
-            }
-        }
-        // 布局里没有一定看得见的收起按钮时由宿主补上，保证随时能关闭歌词页
-        if (!root.reliablyShows { it.type == LayoutNodeType.COLLAPSE_BUTTON }) {
-            FullPlayerCollapseButtons(
-                onClose = slots.onClose,
-                onToggleSidebarFullscreen = null,
-                isSidebarFullscreen = false,
-                modifier = Modifier.align(Alignment.TopStart).padding(horizontal = MelodiaSpacing.lg)
-            )
         }
     }
 }

@@ -33,8 +33,6 @@ data class PluginState(
     val enabledAt: Long = 0L,
     // 用户是否允许过写入网易账号；重新安装后需要再次确认
     val neteaseWriteApproved: Boolean = false,
-    // 原生插件 JAR 的 SHA-256，加载时核对
-    val nativeHash: String? = null,
     // 导入时选择的文件名
     val source: String? = null
 )
@@ -123,7 +121,6 @@ class PluginStore(private val root: File) {
                     enabled = enabled,
                     granted = staged.manifest.permissions.mapTo(HashSet()) { it.key },
                     enabledAt = if (enabled) System.currentTimeMillis() else 0L,
-                    nativeHash = File(target, PluginPaths.JAR).takeIf { staged.manifest.kind == PluginKind.NATIVE }?.let(PluginPackage::sha256),
                     source = staged.sourceName
                 )
             }
@@ -229,14 +226,6 @@ class PluginStore(private val root: File) {
             val choices = layoutChoices().toMutableMap()
             if (choice == null) choices.remove(area) else choices[area] = choice
             writeJson(layoutFile, choiceSerializer, choices)
-        }
-    }
-
-    fun nativeAllowed(): Boolean = synchronized(lock) { readJson(optionsFile, choiceSerializer)[OPTION_ALLOW_NATIVE] == "true" }
-
-    fun setNativeAllowed(allowed: Boolean) {
-        synchronized(lock) {
-            writeJson(optionsFile, choiceSerializer, readJson(optionsFile, choiceSerializer) + (OPTION_ALLOW_NATIVE to allowed.toString()))
         }
     }
 
@@ -351,7 +340,6 @@ class PluginStore(private val root: File) {
     private fun directoryOf(id: String): File? = if (PLUGIN_ID_PATTERN.matches(id)) File(root, id) else null
 
     private companion object {
-        const val OPTION_ALLOW_NATIVE = "allowNative"
-        const val OPTION_CATALOG_URL = "catalogUrl"
+            const val OPTION_CATALOG_URL = "catalogUrl"
     }
 }

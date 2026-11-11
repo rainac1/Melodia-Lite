@@ -303,7 +303,6 @@ fun LocalTagEditorScreen(
                                 TagField(label = "音轨号", value = state.form.trackNumber, onValueChange = viewModel::updateTrackNumber, keyboardType = KeyboardType.Number)
                             }
                         }
-                        TagField(label = "歌词", value = state.form.lyrics, onValueChange = viewModel::updateLyrics, singleLine = false, minLines = 6)
                     }
                 }
             }

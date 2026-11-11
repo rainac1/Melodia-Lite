@@ -28,26 +28,18 @@ enum class HostAction(val key: String) {
     CYCLE_PLAY_MODE("cyclePlayMode"),
     PAGER_NEXT("pagerNext"),
     PAGER_PREVIOUS("pagerPrevious"),
-    OPEN_LYRICS("openLyrics"),
     OPEN_QUEUE("openQueue"),
     OPEN_COMMENTS("openComments"),
     OPEN_SLEEP_TIMER("openSleepTimer"),
     OPEN_MORE("openMore"),
-    COLLAPSE("collapse"),
-    TOGGLE_NOW_PLAYING("toggleNowPlaying"),
-    TOGGLE_LYRICS_VIEW("toggleLyricsView"),
-    CLOSE_LYRICS("closeLyrics"),
-    OPEN_LYRICS_SETTINGS("openLyricsSettings");
+    COLLAPSE("collapse");
 
     companion object {
         fun fromKey(key: String): HostAction? = entries.firstOrNull { it.key == key }
 
         // 所有播放器区域都能用的动作
         val COMMON = setOf(TOGGLE_PLAY, NEXT, PREVIOUS, SEEK_FORWARD, SEEK_BACK, TOGGLE_LIKE, CYCLE_PLAY_MODE, PAGER_NEXT, PAGER_PREVIOUS)
-        val ANDROID_PLAYER = COMMON + setOf(OPEN_LYRICS, OPEN_QUEUE, OPEN_COMMENTS, OPEN_SLEEP_TIMER, OPEN_MORE)
-        val DESKTOP = COMMON + setOf(TOGGLE_NOW_PLAYING, TOGGLE_LYRICS_VIEW)
-        val ANDROID_LYRICS = COMMON + setOf(OPEN_QUEUE, OPEN_COMMENTS, OPEN_SLEEP_TIMER, OPEN_MORE, CLOSE_LYRICS, OPEN_LYRICS_SETTINGS)
-        val DESKTOP_LYRICS = COMMON + setOf(CLOSE_LYRICS, OPEN_LYRICS_SETTINGS)
+        val ANDROID_PLAYER = COMMON + setOf(OPEN_QUEUE, OPEN_COMMENTS, OPEN_SLEEP_TIMER, OPEN_MORE)
     }
 }
 
@@ -103,7 +95,7 @@ fun PlayerLayoutNode.withoutScripts(): PlayerLayoutNode = copy(
     children = children.map { it.withoutScripts() }
 )
 
-// 节点手势；自带点击的组件先处理自己的点击。桌面上右键等同长按
+// 节点手势；自带点击的组件先处理自己的点击。鼠标右键等同长按
 @Composable
 internal fun Modifier.layoutGestures(node: PlayerLayoutNode, onTapAnimation: (() -> Unit)?): Modifier {
     val tap = node.onTap
@@ -148,7 +140,7 @@ internal fun Modifier.layoutGestures(node: PlayerLayoutNode, onTapAnimation: (()
 fun PlayerBindingState.toJson(): JsonObject = JsonObject(
     PlayerBinding.FIELDS.associateWith { field ->
         when (field) {
-            "playing", "liked", "isPodcast", "hasLyrics" -> JsonPrimitive(truthy(field))
+            "playing", "liked", "isPodcast" -> JsonPrimitive(truthy(field))
             else -> JsonPrimitive(text(field))
         }
     }

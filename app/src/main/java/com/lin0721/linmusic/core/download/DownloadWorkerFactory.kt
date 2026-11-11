@@ -5,7 +5,6 @@ import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
 import com.lin0721.linmusic.core.download.data.DownloadApi
-import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import okhttp3.OkHttpClient
 
@@ -15,7 +14,6 @@ class DownloadWorkerFactory(
     private val downloadPreferences: DownloadPreferences,
     private val settingsPreferences: SettingsPreferences,
     private val notificationHelper: DownloadNotificationHelper,
-    private val playbackRepository: PlaybackRepository,
     private val downloadClient: OkHttpClient,
     private val taskStore: DownloadTaskStore,
     private val queueGate: DownloadQueueGate
@@ -33,7 +31,6 @@ class DownloadWorkerFactory(
             downloadPreferences,
             settingsPreferences,
             notificationHelper,
-            playbackRepository,
             downloadClient,
             taskStore,
             queueGate

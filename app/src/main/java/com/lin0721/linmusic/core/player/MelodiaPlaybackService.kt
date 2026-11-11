@@ -47,8 +47,6 @@ import com.lin0721.linmusic.MainActivity
 import com.lin0721.linmusic.R
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.log.AppLogger
-import com.lin0721.linmusic.core.player.external.EXTRA_LYRIC_INFO
-import com.lin0721.linmusic.core.player.external.ExternalLyricCoordinator
 import com.lin0721.linmusic.core.player.usb.UsbAudioDeviceManager
 import com.lin0721.linmusic.core.player.usb.UsbAudioOutputProvider
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
@@ -73,7 +71,6 @@ private const val TAG = "MelodiaPlaybackService"
 private const val NOTIFICATION_ID = 1001
 private const val PLAYBACK_CHANNEL_ID = "melodia_playback_channel"
 private const val PLAYBACK_CHANNEL_NAME = "正在播放"
-private const val ACTION_UNLOCK_FLOATING_LYRIC = "ACTION_UNLOCK_FLOATING_LYRIC"
 private const val ACTION_PREPARE_FOREGROUND = "com.lin0721.linmusic.action.PREPARE_FOREGROUND"
 private const val ACTION_STOP_PENDING_FOREGROUND = "com.lin0721.linmusic.action.STOP_PENDING_FOREGROUND"
 private const val EXTRA_PENDING_TITLE = "extra_pending_title"
@@ -109,14 +106,11 @@ class MelodiaPlaybackService : MediaSessionService() {
     private val settingsPreferences: SettingsPreferences by inject()
     private val userPreferences: UserPreferences by inject()
     private val songLikeRepository: SongLikeRepository by inject()
-    private val externalLyricCoordinator: ExternalLyricCoordinator by inject()
     private val externalInterruptionResumeController: ExternalInterruptionResumeController by inject()
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var isLikedListLoaded = false
     private var isShowLockscreenEnabled = true
-    // 悬浮歌词开启且已锁定时，通知栏提供解锁按钮
-    private var isFloatingLyricLocked = false
 
     private var player: Player? = null
     private var crossfadePlayer: CrossfadePlayer? = null
@@ -196,15 +190,6 @@ class MelodiaPlaybackService : MediaSessionService() {
             }
         }
 
-        serviceScope.launch {
-            combine(settingsPreferences.showDesktopLrc, settingsPreferences.floatingLyricLocked) { shown, locked -> shown && locked }
-                .distinctUntilChanged()
-                .collect { locked ->
-                    isFloatingLyricLocked = locked
-                    updateMediaSessionButtons()
-                }
-        }
-
         // 允许跨协议重定向（如 HTTPS 到 HTTP）
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
@@ -257,11 +242,7 @@ class MelodiaPlaybackService : MediaSessionService() {
             audioAttributes = audioAttributes,
             exclusiveVolume = usbAudio
         )
-        sessionPlayer.setMetadataTransformer { base ->
-            externalLyricCoordinator.applyToMediaMetadata(base.buildUpon(), base)
-        }
         crossfadePlayer = sessionPlayer
-        playerManager.setPlaybackPositionSource(sessionPlayer::currentPositionSample)
 
         serviceScope.launch {
             settingsPreferences.playWithOtherApps.collect { playWithOtherApps ->
@@ -299,10 +280,6 @@ class MelodiaPlaybackService : MediaSessionService() {
             .setCallback(CustomSessionCallback())
             .setSessionActivity(pendingIntent)
             .build()
-
-        externalLyricCoordinator.onMetadataChanged = {
-            sessionPlayer.notifyMetadataChanged()
-        }
 
         externalInterruptionResumeController.start(
             scope = serviceScope,
@@ -440,11 +417,8 @@ class MelodiaPlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        playerManager.setPlaybackPositionSource(null)
         AppLogger.i(TAG, "Service onDestroy instanceId=${System.identityHashCode(this)}")
         externalInterruptionResumeController.release()
-        externalLyricCoordinator.onMetadataChanged = null
-        externalLyricCoordinator.release()
         playerManager.release()
         playerManager.saveState()
         serviceScope.cancel()
@@ -502,19 +476,7 @@ class MelodiaPlaybackService : MediaSessionService() {
     }
 
     @OptIn(UnstableApi::class)
-    private fun buildUnlockLyricButton(): CommandButton =
-        CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setCustomIconResId(R.drawable.ic_lock_open)
-            .setSessionCommand(SessionCommand(ACTION_UNLOCK_FLOATING_LYRIC, Bundle()))
-            .setDisplayName("解锁歌词")
-            .setSlots(CommandButton.SLOT_OVERFLOW)
-            .build()
-
-    // 解锁按钮随锁定状态增删，布局变化会让 Media3 重建通知
-    @OptIn(UnstableApi::class)
-    private fun buildCustomLayout(): List<CommandButton> {
-        return listOfNotNull(buildLikeButton(), buildUnlockLyricButton().takeIf { isFloatingLyricLocked })
-    }
+    private fun buildCustomLayout(): List<CommandButton> = listOf(buildLikeButton())
 
     // 不能在这里声明 SLOT_BACK / SLOT_FORWARD 的上/下一首按钮：Media3 一旦发现这两个槽位被占用，
     // 会把标准的 ACTION_SKIP_TO_PREVIOUS / NEXT 从旧版 PlaybackState 里剔除，改以自定义动作下发。
@@ -530,7 +492,6 @@ class MelodiaPlaybackService : MediaSessionService() {
             .add(SessionCommand("ACTION_TOGGLE_LIKE", Bundle()))
             .add(SessionCommand("ACTION_TOGGLE_PLAY_MODE", Bundle()))
             .add(SessionCommand("ACTION_SET_PREFERRED_AUDIO_DEVICE", Bundle()))
-            .add(SessionCommand(ACTION_UNLOCK_FLOATING_LYRIC, Bundle()))
             .build()
     }
 
@@ -643,12 +604,6 @@ class MelodiaPlaybackService : MediaSessionService() {
                         SessionResult(SessionResult.RESULT_SUCCESS)
                     )
                 }
-                ACTION_UNLOCK_FLOATING_LYRIC -> {
-                    serviceScope.launch { settingsPreferences.saveFloatingLyricLocked(false) }
-                    return com.google.common.util.concurrent.Futures.immediateFuture(
-                        SessionResult(SessionResult.RESULT_SUCCESS)
-                    )
-                }
                 "ACTION_TOGGLE_PLAY_MODE" -> {
                     playerManager.rotatePlayMode()
                     updateMediaSessionButtons()
@@ -739,23 +694,6 @@ class MelodiaPlaybackService : MediaSessionService() {
                 .addAction(playPauseAction)
                 .addAction(nextAction)
                 .addAction(likeAction)
-
-            if (isFloatingLyricLocked) {
-                builder.addAction(
-                    actionFactory.createCustomAction(
-                        session,
-                        IconCompat.createWithResource(this@MelodiaPlaybackService, R.drawable.ic_lock_open),
-                        "解锁歌词",
-                        ACTION_UNLOCK_FLOATING_LYRIC,
-                        Bundle.EMPTY
-                    )
-                )
-            }
-
-            val lyricInfo = metadata?.extras?.getString(EXTRA_LYRIC_INFO)
-            if (!lyricInfo.isNullOrBlank()) {
-                builder.addExtras(Bundle().apply { putString(EXTRA_LYRIC_INFO, lyricInfo) })
-            }
 
             currentCoverBitmap?.let { bitmap ->
                 builder.setLargeIcon(bitmap)

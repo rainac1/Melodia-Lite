@@ -17,7 +17,6 @@
 
 - [ ] Android 手机
 - [ ] Android 平板
-- [ ] Windows 桌面端
 
 ## 改动
 
@@ -25,8 +24,7 @@
 
 ## 测试与验证
 
-- [ ] `./gradlew :app:testDebugUnitTest :shared:desktopTest`
-- [ ] `./gradlew :desktopApp:compileKotlin`
+- [ ] `./gradlew :app:testDebugUnitTest`
 - [ ] `./gradlew :app:assembleRelease`
 
 ## 风险与影响范围

@@ -28,7 +28,6 @@ data class LocalTagSnapshot(
     val albumArtist: String = "",
     val year: String = "",
     val trackNumber: String = "",
-    val lyrics: String = "",
     val coverBytes: ByteArray? = null,
     val fileName: String = "",
     val formatLabel: String = ""
@@ -47,7 +46,6 @@ data class LocalTagForm(
     val albumArtist: String = "",
     val year: String = "",
     val trackNumber: String = "",
-    val lyrics: String = "",
     val cover: LocalTagCoverChange = LocalTagCoverChange.Keep
 )
 
@@ -83,10 +81,9 @@ class LocalTagEditor(private val context: Context) {
                 val albumArtist = props["ALBUMARTIST"]?.joinToString(" / ") ?: ""
                 val year = props["DATE"]?.joinToString(" / ") ?: ""
                 val trackNumber = props["TRACKNUMBER"]?.joinToString(" / ") ?: ""
-                val lyrics = props["LYRICS"]?.joinToString("\n") ?: ""
                 val coverBytes = meta.pictures.firstOrNull()?.data
 
-                LocalTagSnapshot(title, artist, album, albumArtist, year, trackNumber, lyrics, coverBytes, fileName, formatLabel)
+                LocalTagSnapshot(title, artist, album, albumArtist, year, trackNumber, coverBytes, fileName, formatLabel)
             }
         }.onFailure { AppLogger.w(TAG, "标签读取失败 uri=$uri", it) }.getOrNull()
     }
@@ -158,8 +155,7 @@ internal fun buildTagPropertyMap(existing: Map<String, Array<String>>, form: Loc
         "ALBUM" to form.album,
         "ALBUMARTIST" to form.albumArtist,
         "DATE" to form.year,
-        "TRACKNUMBER" to form.trackNumber,
-        "LYRICS" to form.lyrics
+        "TRACKNUMBER" to form.trackNumber
     ).forEach { (key, raw) ->
         val value = raw.trim()
         if (value.isEmpty()) map.remove(key) else map[key] = arrayOf(value)

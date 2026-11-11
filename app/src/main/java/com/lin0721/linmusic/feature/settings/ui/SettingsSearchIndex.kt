@@ -37,7 +37,6 @@ object SettingsSearchIndex {
 
             entry(DOWNLOAD_STORAGE, 0, "边听边存", "缓存 在线播放 保存"),
             entry(DOWNLOAD_STORAGE, 0, "下载目录", "保存位置 文件夹 恢复默认"),
-            entry(DOWNLOAD_STORAGE, 0, "内嵌歌词", "歌词 写入 音频文件"),
             entry(DOWNLOAD_STORAGE, 1, "清理缓存", "存储 空间 音频缓存 图片缓存 日志 临时文件 更新安装包 最大缓存"),
 
             entry(NETWORK, 0, "仅 Wi-Fi 网络下联网播放", "流量 移动网络"),
@@ -45,15 +44,6 @@ object SettingsSearchIndex {
             entry(NETWORK, 1, "使用国内 IP 地址", "海外 ip 限制"),
             entry(NETWORK, 1, "使用代理服务器", "proxy 代理"),
 
-            entry(LYRICS, 0, "歌词字号大小", "全屏歌词 字体"),
-            entry(LYRICS, 0, "歌词对齐方式", "居中 左对齐"),
-            entry(LYRICS, 0, "逐字歌词流光动效", "卡拉ok 渐变"),
-            entry(LYRICS, 1, "启用桌面悬浮歌词", "悬浮窗 桌面 锁定 阴影 粗体"),
-            entry(LYRICS, 2, "SuperLyric 实时歌词", "状态栏 binder"),
-            entry(LYRICS, 2, "LyricInfo 系统歌词", "锁屏岛 元数据"),
-            entry(LYRICS, 2, "车载蓝牙歌词", "蓝牙 标题栏"),
-            entry(LYRICS, 2, "Lyricon 词幕投屏", "词幕"),
-            entry(LYRICS, 2, "状态栏歌词胶囊", "流体云 now bar 实时更新通知"),
 
             entry(APPEARANCE, 0, "主题与深浅色", "深色 浅色 跟随系统 主色 动态色 莫奈"),
             entry(APPEARANCE, 0, "皮肤", "主题包 换肤"),

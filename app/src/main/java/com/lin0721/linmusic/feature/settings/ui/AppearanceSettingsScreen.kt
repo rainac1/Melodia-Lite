@@ -25,7 +25,7 @@ import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.preferences.UiScale
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
-import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
+import com.lin0721.linmusic.core.ui.components.CapsuleSlider
 import com.lin0721.linmusic.core.ui.components.MelodiaDragHandle
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaWindowSizeClass
@@ -108,7 +108,7 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                             fontSize = 12.sp
                         )
                         Spacer(modifier = Modifier.height(10.dp))
-                        LyricCapsuleSlider(
+                        CapsuleSlider(
                             value = displayPercent,
                             onValueChange = { pendingPercent = it },
                             valueRange = UiScale.MIN_PERCENT.toFloat()..UiScale.MAX_PERCENT.toFloat(),
@@ -122,7 +122,7 @@ fun AppearanceSettingsView(viewModel: SettingsViewModel) {
                     HorizontalDivider(color = MelodiaColors.Divider)
                     SettingsSwitchRow(
                         title = "界面过渡动画",
-                        subtitle = "关闭后切页、面板展开收起等直接切换，不影响歌词滚动",
+                        subtitle = "关闭后切页、面板展开收起等直接切换",
                         checked = uiAnimationsEnabled,
                         onCheckedChange = { viewModel.updateUiAnimationsEnabled(it) }
                     )
@@ -226,7 +226,7 @@ fun SystemSettingsView(viewModel: SettingsViewModel) {
                 SettingsGroupCard(SettingsSubMenu.SYSTEM.sectionTitles[0]) {
                     SettingsSwitchRow(
                         title = "启用系统锁屏显示",
-                        subtitle = "在锁屏界面展示播放控制器与歌词面板",
+                        subtitle = "在锁屏界面展示播放控制器",
                         checked = showLockscreen,
                         onCheckedChange = { viewModel.updateShowLockscreen(it) }
                     )

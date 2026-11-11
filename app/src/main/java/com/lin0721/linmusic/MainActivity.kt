@@ -47,9 +47,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import com.lin0721.linmusic.core.player.FloatingLyricService
-import com.lin0721.linmusic.core.player.floatinglyric.ACTION_OPEN_LYRIC_SETTINGS
-import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.preferences.UiScale
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
@@ -75,7 +72,6 @@ class MainActivity : ComponentActivity() {
     private val pluginCommands: PluginCommands by inject()
     private val skinImageCodec: SkinImageCodec by inject()
     private val playbackRecognitionState: PlaybackRecognitionState by inject()
-    private val floatingLyricRequests: FloatingLyricRequests by inject()
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -108,17 +104,6 @@ class MainActivity : ComponentActivity() {
         applySystemBarStyle(isDark = true)
         requestNotificationPermissionIfNeeded()
         handleLaunchIntent(intent)
-
-        // 监听悬浮歌词开关
-        lifecycleScope.launch {
-            settingsPreferences.showDesktopLrc.collectLatest { enabled ->
-                if (enabled) {
-                    startFloatingLyricOrRequestPermission()
-                } else {
-                    stopService(Intent(this@MainActivity, FloatingLyricService::class.java))
-                }
-            }
-        }
 
         // 设置页松手后写入新缩放，重建界面让它落到 Activity 配置上
         lifecycleScope.launch {
@@ -192,21 +177,10 @@ class MainActivity : ComponentActivity() {
         handleLaunchIntent(intent)
     }
 
-    // 识曲结果通知与悬浮歌词设置按钮拉起：交给界面层打开对应页面
+    // 识曲结果通知拉起：交给界面层打开对应页面
     private fun handleLaunchIntent(intent: Intent?) {
         when (intent?.action) {
             ACTION_OPEN_RECOGNITION_RESULT -> playbackRecognitionState.requestOpenResult()
-            ACTION_OPEN_LYRIC_SETTINGS -> floatingLyricRequests.requestOpenSettings()
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        lifecycleScope.launch {
-            val enabled = settingsPreferences.showDesktopLrc.first()
-            if (enabled && android.provider.Settings.canDrawOverlays(this@MainActivity)) {
-                startService(Intent(this@MainActivity, FloatingLyricService::class.java))
-            }
         }
     }
 
@@ -234,22 +208,4 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // 有悬浮窗权限则直接启动桌面歌词，否则需要前往系统设置授权
-    private fun startFloatingLyricOrRequestPermission() {
-        if (android.provider.Settings.canDrawOverlays(this)) {
-            startService(Intent(this, FloatingLyricService::class.java))
-            return
-        }
-        android.widget.Toast.makeText(
-            this,
-            "请开启悬浮窗权限以显示桌面歌词",
-            android.widget.Toast.LENGTH_LONG
-        ).show()
-        startActivity(
-            Intent(
-                android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                android.net.Uri.parse("package:$packageName")
-            )
-        )
-    }
 }

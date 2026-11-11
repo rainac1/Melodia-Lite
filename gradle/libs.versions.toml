@@ -21,12 +21,7 @@ haze = "0.6.2"
 datastore = "1.1.7"
 # 与 Kotlin 2.2.x 捆绑的协程版本保持一致，仅测试期使用
 coroutinesTest = "1.9.0"
-# 与 Compose Desktop 传递解析出的 kotlinx-coroutines-core 版本保持一致
-coroutinesSwing = "1.10.2"
-jna = "5.17.0"
-jaudiotagger = "3.0.1"
-# 桌面端 LX 插件脚本引擎
-graalvm = "25.0.4"
+coroutines = "1.10.2"
 # LX 插件压缩包（7z）解析
 commonsCompress = "1.28.0"
 xz = "1.12"
@@ -36,7 +31,6 @@ bouncycastle = "1.85.2"
 workManager = "2.10.1"
 documentfile = "1.0.1"
 taglib = "1.0.5"
-lyriconProvider = "0.1.70"
 orgJson = "20230227"
 room = "2.8.5"
 ksp = "2.3.12"
@@ -51,19 +45,11 @@ bouncycastle = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.re
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
-kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutinesSwing" }
-kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutinesSwing" }
-# 桌面端调用 libmpv
-jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna" }
-jaudiotagger = { group = "net.jthink", name = "jaudiotagger", version.ref = "jaudiotagger" }
-# 桌面端 LX 插件脚本引擎（GraalJS）
-graal-polyglot = { group = "org.graalvm.polyglot", name = "polyglot", version.ref = "graalvm" }
-graal-js-community = { group = "org.graalvm.polyglot", name = "js-community", version.ref = "graalvm" }
-graal-wasm-community = { group = "org.graalvm.polyglot", name = "wasm-community", version.ref = "graalvm" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 # LX 插件压缩包（7z）解析
 commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commonsCompress" }
 xz = { group = "org.tukaani", name = "xz", version.ref = "xz" }
-# 桌面端 org.json（Android 由系统提供）
+# Android 运行时由系统提供，编译期与单测显式引用
 org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
@@ -132,7 +118,6 @@ android-image-cropper = { group = "com.vanniktech", name = "android-image-croppe
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
 # 词幕 Provider
-lyricon-provider = { group = "io.github.proify.lyricon", name = "provider", version.ref = "lyriconProvider" }
 
 # Baseline Profile
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
@@ -144,7 +129,6 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 android-test = { id = "com.android.test", version.ref = "agp" }
 baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineprofile" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

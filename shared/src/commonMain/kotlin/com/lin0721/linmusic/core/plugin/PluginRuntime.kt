@@ -177,18 +177,13 @@ class PluginRuntime(
         registry.register(Extension(ExtensionPoints.EVENT, manifest.id, manifest.name, manifest.id, extension))
     }
 
-    // 只接受清单声明过的音源与歌词源
+    // 只接受清单声明过的音源
     private fun registerSource(manifest: PluginManifest, kind: String, name: String) {
         when (kind) {
             PluginPrelude.KIND_AUDIO_SOURCE -> {
                 val order = manifest.contributes.audioSources.indexOfFirst { it.id == name }
                 if (order < 0) return
                 registry.register(Extension(ExtensionPoints.AUDIO_SOURCE, manifest.id, manifest.name, name, ScriptAudioSource(manifest.id, name), order))
-            }
-            PluginPrelude.KIND_LYRICS_SOURCE -> {
-                val order = manifest.contributes.lyricsSources.indexOfFirst { it.id == name }
-                if (order < 0) return
-                registry.register(Extension(ExtensionPoints.LYRICS_SOURCE, manifest.id, manifest.name, name, ScriptLyricsSource(manifest.id, name), order))
             }
             PluginPrelude.KIND_CONTENT_SOURCE -> {
                 val order = manifest.contributes.contentSources.indexOfFirst { it.id == name }
@@ -253,16 +248,6 @@ class PluginRuntime(
                 put("params", JsonObject(query.toJson() + ("quality" to JsonPrimitive(quality))))
             }
             return invoke(pluginId, PluginPrelude.KIND_AUDIO_SOURCE, name, args, SOURCE_TIMEOUT_MS)
-        }
-    }
-
-    private inner class ScriptLyricsSource(private val pluginId: String, private val name: String) : LyricsSourceExtension {
-        override suspend fun fetch(query: PluginTrackQuery): JsonElement? {
-            val args = buildJsonObject {
-                put("method", "fetch")
-                put("params", query.toJson())
-            }
-            return invoke(pluginId, PluginPrelude.KIND_LYRICS_SOURCE, name, args, SOURCE_TIMEOUT_MS)
         }
     }
 
@@ -452,7 +437,6 @@ class PluginRuntime(
         private val SCRIPT_POINTS: Set<ExtensionPoint<*>> =
             setOf(
                 ExtensionPoints.AUDIO_SOURCE,
-                ExtensionPoints.LYRICS_SOURCE,
                 ExtensionPoints.EVENT,
                 ExtensionPoints.COMMAND,
                 ExtensionPoints.CONTENT_SOURCE

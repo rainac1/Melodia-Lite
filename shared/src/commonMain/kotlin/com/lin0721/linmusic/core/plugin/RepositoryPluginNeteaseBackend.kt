@@ -4,8 +4,6 @@ import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
-import com.lin0721.linmusic.core.player.data.PlaybackRepository
-import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationEvent
 import com.lin0721.linmusic.core.songlike.SongLikeRepository
@@ -27,7 +25,6 @@ private const val OP_REMOVE = "del"
 class RepositoryPluginNeteaseBackend(
     private val user: () -> UserPreferences,
     private val player: () -> PlayerRepository,
-    private val playback: () -> PlaybackRepository,
     private val search: () -> SearchRepository,
     private val playlists: () -> PlaylistRepository,
     private val artists: () -> ArtistRepository,
@@ -40,8 +37,6 @@ class RepositoryPluginNeteaseBackend(
     override suspend fun uid(): Long? = user().userProfile.first()?.uid?.takeIf { it > 0 }
 
     override suspend fun songDetails(ids: List<Long>): Result<List<Track>> = player().getSongDetails(ids).first()
-
-    override suspend fun lyrics(id: Long): Result<List<LyricLine>> = playback().getLyrics(id).first()
 
     override suspend fun search(keyword: String, type: SearchType, offset: Int, limit: Int): Result<SearchPageResult> =
         search().search(keyword, type, offset, limit).first()

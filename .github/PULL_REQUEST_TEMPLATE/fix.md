@@ -16,7 +16,6 @@ dev 验证稳定后再由 dev 合入 main 发正式版，请勿直接向 main �
 
 - [ ] Android 手机
 - [ ] Android 平板
-- [ ] Windows 桌面端
 
 ## 改动
 
@@ -28,8 +27,7 @@ dev 验证稳定后再由 dev 合入 main 发正式版，请勿直接向 main �
 
 已执行（与 CI 保持一致，勾选已通过项）：
 
-- [ ] `./gradlew :app:testDebugUnitTest :shared:desktopTest`
-- [ ] `./gradlew :desktopApp:compileKotlin`
+- [ ] `./gradlew :app:testDebugUnitTest`
 - [ ] `./gradlew :app:assembleRelease`
 
 复现与验证：

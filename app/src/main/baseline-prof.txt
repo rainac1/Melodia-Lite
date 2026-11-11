@@ -1,4 +1,4 @@
-# 应用启动、列表高频滑动、全屏播放器与逐字歌词渲染 Baseline Profile 规则
+# 应用启动、列表高频滑动与全屏播放器 Baseline Profile 规则
 HSPLcom/lin0721/linmusic/MelodiaApplication**;->*(**)**
 Lcom/lin0721/linmusic/MelodiaApplication**;
 HSPLcom/lin0721/linmusic/MainActivity**;->*(**)**
@@ -44,7 +44,7 @@ Lcom/lin0721/linmusic/core/ui/interaction/**;
 HSPLcom/lin0721/linmusic/core/ui/theme/**;->*(**)**
 Lcom/lin0721/linmusic/core/ui/theme/**;
 
-# 歌单、主页、音乐库、搜索、本地音乐与全屏播放器/逐字歌词
+# 歌单、主页、音乐库、搜索、本地音乐与全屏播放器
 HSPLcom/lin0721/linmusic/feature/home/**;->*(**)**
 Lcom/lin0721/linmusic/feature/home/**;
 HSPLcom/lin0721/linmusic/feature/playlist/**;->*(**)**

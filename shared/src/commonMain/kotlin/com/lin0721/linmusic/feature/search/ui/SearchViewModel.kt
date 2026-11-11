@@ -94,7 +94,7 @@ class SearchViewModel(
     private val _mode = MutableStateFlow(SearchMode.Discovery)
     val mode: StateFlow<SearchMode> = _mode.asStateFlow()
 
-    // 桌面端下拉浮层才需要输入时的歌曲命中卡片，其余端不额外发请求
+    // 输入时的歌曲命中卡片按需加载，不额外发请求
     var songHitsEnabled: Boolean = false
 
     private val _resolvingTrackKey = MutableStateFlow<String?>(null)
@@ -321,7 +321,7 @@ class SearchViewModel(
         requestSuggestions(newQuery)
     }
 
-    // 只改输入框草稿词与联想，不动当前模式与已加载的结果；桌面端下拉浮层专用
+    // 只改输入框草稿词与联想，不动当前模式与已加载的结果
     fun updateDraft(newQuery: String) {
         _inputState.value = _inputState.value.copy(query = newQuery)
         requestSuggestions(newQuery)

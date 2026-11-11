@@ -57,10 +57,8 @@ class CommonSettingsViewModel(
     val audioCacheMaxSize = settingsPreferences.audioCacheMaxSize.asState(500 * 1024 * 1024L)
 
     val downloadFolderUri = settingsPreferences.downloadFolderUri.asState(null)
-    val downloadLyricsEnabled = settingsPreferences.downloadLyricsEnabled.asState(true)
 
     val defaultPlaylistPrivate = settingsPreferences.defaultPlaylistPrivate.asState(false)
-    val showDesktopLrc = settingsPreferences.showDesktopLrc.asState(false)
     val fullPlayerCardLayout: StateFlow<List<FullPlayerCardSetting>> =
         settingsPreferences.fullPlayerCardLayout.asState(FullPlayerCardLayout.DEFAULT)
 
@@ -112,11 +110,7 @@ class CommonSettingsViewModel(
     // null 表示恢复默认目录
     fun updateDownloadFolderUri(uri: String?) = launchSave { settingsPreferences.saveDownloadFolderUri(uri) }
 
-    fun updateDownloadLyricsEnabled(enabled: Boolean) = launchSave { settingsPreferences.saveDownloadLyricsEnabled(enabled) }
-
     fun updateDefaultPlaylistPrivate(private: Boolean) = launchSave { settingsPreferences.saveDefaultPlaylistPrivate(private) }
-
-    fun updateShowDesktopLrc(enabled: Boolean) = launchSave { settingsPreferences.saveShowDesktopLrc(enabled) }
 
     fun updateFullPlayerCardLayout(layout: List<FullPlayerCardSetting>) = launchSave {
         settingsPreferences.saveFullPlayerCardLayout(layout)

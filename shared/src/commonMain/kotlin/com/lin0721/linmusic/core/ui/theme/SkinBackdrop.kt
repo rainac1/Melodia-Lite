@@ -52,7 +52,7 @@ fun Modifier.skinBackdropRoot(fallback: Color): Modifier {
         }
 }
 
-// 盖住其他面板的整块画布区域（如全屏歌词外沿），看起来与根画布一致
+// 盖住其他面板的整块画布区域，看起来与根画布一致
 @Composable
 fun Modifier.canvasBackdrop(fallback: Color): Modifier = alignedBackdrop(fallback, withShell = false, forPlayer = false, alpha = null)
 

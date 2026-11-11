@@ -49,7 +49,6 @@ class SongDownloadWorker(
     private val downloadPreferences: DownloadPreferences,
     private val settingsPreferences: SettingsPreferences,
     private val notificationHelper: DownloadNotificationHelper,
-    private val playbackRepository: PlaybackRepository,
     private val downloadClient: OkHttpClient,
     private val taskStore: DownloadTaskStore,
     private val queueGate: DownloadQueueGate
@@ -183,7 +182,7 @@ class SongDownloadWorker(
             }
             localTemp = tempFile
 
-            // 写入音频元数据、封面与内嵌歌词
+            // 写入音频元数据与封面
             runCatching { writeTags(tempFile, extension) }
                 .onFailure { AppLogger.w(TAG, "写入 ID3/Vorbis 标签失败，跳过 songId=$songId", it) }
             val finalFileSize = tempFile.length()
@@ -465,18 +464,8 @@ class SongDownloadWorker(
         else "${displayName}_${System.currentTimeMillis()}"
     }
 
-    // 写入音频元数据、封面与内嵌歌词
+    // 写入音频元数据与封面
     private suspend fun writeTags(file: File, extension: String) {
-        val shouldEmbedLyrics = settingsPreferences.downloadLyricsEnabled.first()
-        val rawLyrics = if (shouldEmbedLyrics) {
-            runCatching { playbackRepository.getRawLyrics(songId).first().getOrNull() }
-                .onFailure { AppLogger.w(TAG, "获取歌词失败，跳过 songId=$songId", it) }
-                .getOrNull()
-                ?.takeIf { it.isNotBlank() }
-        } else {
-            null
-        }
-
         ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_WRITE).use { pfd ->
             val fd = pfd.dup().detachFd()
             val metadata = TagLib.getMetadata(fd, readPictures = false)
@@ -488,9 +477,6 @@ class SongDownloadWorker(
             }
             if (albumYear > 0) {
                 propertyMap["DATE"] = arrayOf(albumYear.toString())
-            }
-            if (!rawLyrics.isNullOrBlank()) {
-                propertyMap["LYRICS"] = arrayOf(rawLyrics)
             }
             TagLib.savePropertyMap(pfd.dup().detachFd(), propertyMap)
         }

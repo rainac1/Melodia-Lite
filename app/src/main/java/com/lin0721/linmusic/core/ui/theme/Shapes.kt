@@ -26,7 +26,7 @@ val DragHandleShape: Shape = RoundedCornerShape(2.dp)
 // 封面图/缩略图圆角；皮肤 style.radius.cover 可覆盖
 val RadiusCompact: Dp @Composable @ReadOnlyComposable get() = styledCoverRadius(6.dp)
 
-// 播放详情页信息卡片圆角（歌词/评论/歌曲详情/类似艺人/关于艺人/艺人专辑）；皮肤 style.radius.card 可覆盖
+// 播放详情页信息卡片圆角（评论/歌曲详情/类似艺人/关于艺人/艺人专辑）；皮肤 style.radius.card 可覆盖
 val InfoCardRadius: Dp @Composable @ReadOnlyComposable get() = styledCardRadius(16.dp)
 
 // 胶囊型按钮/Chip 圆角

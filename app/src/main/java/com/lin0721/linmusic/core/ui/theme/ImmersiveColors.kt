@@ -32,16 +32,15 @@ fun rememberOnCoverColors(backgrounds: List<Color>, source: MelodiaPalette, acce
     }
 }
 
-// 封面取色铺底的沉浸页（全屏播放器、歌词预览卡）配色：fill 铺底，blob 是流动光斑，inactive 是未唱到的歌词
+// 封面取色铺底的沉浸页（全屏播放器）配色：fill 铺底，inactive 是次级文字色
 @Immutable
-data class ImmersiveColors(val fill: Color, val blob: Color, val inactive: Color)
+data class ImmersiveColors(val fill: Color, val inactive: Color)
 
 // 两种主题都是有色底配白字：深色主色提饱和后压暗，浅色按相对亮度取中调，比深色亮但仍托得住白字
 fun immersiveColors(base: Color, midTone: Boolean, text: Color = Color.White): ImmersiveColors {
     val vivid = base.saturateIfChromatic(0.6f)
     return ImmersiveColors(
         fill = if (midTone) immersiveMidFill(vivid) else vivid.darken(0.35f),
-        blob = if (midTone) immersiveMidBlob(vivid) else vivid.darken(0.15f),
         inactive = lerp(base.saturateIfChromatic(0.8f).lighten(1.0f), text, 0.5f)
     )
 }
@@ -49,13 +48,13 @@ fun immersiveColors(base: Color, midTone: Boolean, text: Color = Color.White): I
 private val immersiveMidTone: Boolean
     @Composable @ReadOnlyComposable get() = LocalImmersiveMidTone.current || !MelodiaColors.IsDark
 
-// 播放区透出皮肤背景图时不再铺封面色：歌词卡改为沉浸区色板的半透明填充，未唱到的歌词取文字与遮罩的中间色
+// 播放区透出皮肤背景图时铺沉浸区色板，次级文字取文字与遮罩的中间色
 @Composable
 fun rememberImmersiveColors(base: Color): ImmersiveColors {
     if (isCoverBackdrop(CoverGroup.PLAYER)) {
         val palette = LocalImmersiveBasePalette.current
         return remember(palette) {
-            ImmersiveColors(fill = palette.fill, blob = palette.fill, inactive = lerp(palette.textPrimary, palette.windowBackground, BACKDROP_INACTIVE_FRACTION))
+            ImmersiveColors(fill = palette.fill, inactive = lerp(palette.textPrimary, palette.windowBackground, BACKDROP_INACTIVE_FRACTION))
         }
     }
     val midTone = immersiveMidTone

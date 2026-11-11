@@ -22,7 +22,7 @@ interface ScriptSandbox {
     fun close()
 }
 
-// Android 用 WebView 实现，桌面端用 GraalJS 实现
+// Android 用 WebView 实现
 interface ScriptSandboxFactory {
 
     // prelude 在沙盒创建后、任何脚本之前执行；沙盒内另有 console 与 setTimeout

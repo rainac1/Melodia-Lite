@@ -44,7 +44,6 @@ import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import kotlinx.coroutines.flow.collectLatest
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.lin0721.linmusic.core.player.floatinglyric.FloatingLyricRequests
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -55,7 +54,6 @@ enum class SettingsSubMenu(val title: String, val sectionTitles: List<String>, v
     QUALITY_SOURCES("音质与音源", listOf("默认音质", "播放页显示", "换源基础设置", "社区扩展源", "远程 UNM 服务"), Icons.Outlined.HighQuality),
     DOWNLOAD_STORAGE("下载与存储", listOf("下载", "存储管理"), Icons.Outlined.Storage),
     NETWORK("网络设置", listOf("网络连接", "网络代理"), Icons.Outlined.Wifi),
-    LYRICS("歌词设置", listOf("全屏歌词", "悬浮歌词", "外部与系统歌词"), Icons.Outlined.Subtitles),
     APPEARANCE("外观", listOf("显示", "底部导航栏", "播放页布局"), Icons.Outlined.Palette),
     SYSTEM("系统与集成", listOf("悬浮与桌面", "设备与集成", "沉浸", "插件"), Icons.Outlined.Extension),
     ABOUT("关于", listOf("版本更新", "应用说明与协议", "诊断与日志", "特别感谢"), Icons.Outlined.Info);
@@ -72,12 +70,6 @@ fun SettingsScreen(
     val context = LocalContext.current
     // 缩放变更会重建 Activity，当前打开的子菜单要随之保留
     var activeSubMenu by rememberSaveable { mutableStateOf<SettingsSubMenu?>(null) }
-    val floatingLyricRequests: FloatingLyricRequests = koinInject()
-    val pendingLyricSettings by floatingLyricRequests.pendingOpenSettings.collectAsStateWithLifecycle()
-    LaunchedEffect(pendingLyricSettings) {
-        if (pendingLyricSettings && floatingLyricRequests.consumeOpenSettings()) activeSubMenu = SettingsSubMenu.LYRICS
-    }
-
     // 全局浮层开着时让位，避免抢先吞掉本该用来关浮层的返回事件
     BackHandler(enabled = activeSubMenu != null && !LocalGlobalOverlayOpen.current) {
         activeSubMenu = null
@@ -309,7 +301,6 @@ private fun SubMenuContent(
             SettingsSubMenu.NETWORK -> NetworkSettingsView(viewModel)
             SettingsSubMenu.APPEARANCE -> AppearanceSettingsView(viewModel)
             SettingsSubMenu.SYSTEM -> SystemSettingsView(viewModel)
-            SettingsSubMenu.LYRICS -> LyricsSettingsView(viewModel)
             SettingsSubMenu.ABOUT -> AboutSettingsView(viewModel)
         }
     }

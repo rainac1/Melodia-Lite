@@ -360,8 +360,6 @@ fun MelodiaFullPlayerOverlay(
     onAlbumClick: (Long) -> Unit,
     onPlaylistClick: (Long) -> Unit = {},
     onNavigateToProfile: (Long) -> Unit = {},
-    onLyricsFullScreenChange: (Boolean) -> Unit = {},
-    onLyricsControlsVisibilityChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // 仅在播放器打开或动画进行中时渲染，避免关闭后 nestedScroll 拦截触摸事件
@@ -394,9 +392,7 @@ fun MelodiaFullPlayerOverlay(
                 onAlbumClick = onAlbumClick,
                 onPlaylistClick = onPlaylistClick,
                 onNavigateToProfile = onNavigateToProfile,
-                fitCoverAboveNavigationBar = true,
-                onLyricsFullScreenChange = onLyricsFullScreenChange,
-                onLyricsControlsVisibilityChange = onLyricsControlsVisibilityChange
+                fitCoverAboveNavigationBar = true
             )
         }
     }

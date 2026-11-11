@@ -31,7 +31,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.player.CrossfadePolicy
-import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
+import com.lin0721.linmusic.core.ui.components.CapsuleSlider
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
@@ -153,7 +153,7 @@ fun PlaybackSettingsView(viewModel: SettingsViewModel) {
                             )
                         }
                         Spacer(modifier = Modifier.height(10.dp))
-                        LyricCapsuleSlider(
+                        CapsuleSlider(
                             value = crossfadeDurationMs,
                             onValueChange = { viewModel.updateCrossfadeDurationMs(CrossfadePolicy.normalizeDurationMs(it)) },
                             valueRange = CrossfadePolicy.MIN_DURATION_MS.toFloat()..CrossfadePolicy.MAX_DURATION_MS.toFloat(),
@@ -178,7 +178,6 @@ fun DownloadSettingsView(viewModel: SettingsViewModel) {
     val context = LocalContext.current
     val streamCacheEnabled by viewModel.streamCacheEnabled.collectAsStateWithLifecycle()
     val downloadFolderUri by viewModel.downloadFolderUri.collectAsStateWithLifecycle()
-    val downloadLyricsEnabled by viewModel.downloadLyricsEnabled.collectAsStateWithLifecycle()
 
     val folderPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
@@ -214,13 +213,6 @@ fun DownloadSettingsView(viewModel: SettingsViewModel) {
                         val initialUri = resolveInitialFolderUri(downloadFolderUri)
                         folderPickerLauncher.launch(initialUri)
                     }
-                )
-                HorizontalDivider(color = MelodiaColors.Divider)
-                SettingsSwitchRow(
-                    title = "内嵌歌词",
-                    subtitle = "下载歌曲与边听边存时将逐字歌词内嵌写入音频文件",
-                    checked = downloadLyricsEnabled,
-                    onCheckedChange = { viewModel.updateDownloadLyricsEnabled(it) }
                 )
                 if (!downloadFolderUri.isNullOrBlank()) {
                     HorizontalDivider(color = MelodiaColors.Divider)

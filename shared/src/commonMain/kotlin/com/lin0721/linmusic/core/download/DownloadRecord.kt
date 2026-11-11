@@ -3,7 +3,7 @@ package com.lin0721.linmusic.core.download
 import com.lin0721.linmusic.core.model.qualityRank
 import kotlinx.serialization.Serializable
 
-// 下载记录实体；mediaStoreUri 在 Android 为 content Uri，桌面端为文件绝对路径
+// 下载记录实体；mediaStoreUri 为 Android content Uri
 @Serializable
 data class DownloadRecord(
     val songId: Long,

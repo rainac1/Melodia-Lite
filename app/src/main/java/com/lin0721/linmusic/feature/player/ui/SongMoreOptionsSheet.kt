@@ -60,10 +60,8 @@ fun SongMoreOptionsSheet(
     currentQuality: String,
     // 本地歌曲未匹配到云端：没有网易 songId，依赖云端数据的操作全部隐藏
     isLocalOnly: Boolean,
-    // 播客节目：专辑、歌手、收藏到歌单、心动模式、相似歌曲、下载、音质、小歌词都不适用，整项隐藏
+    // 播客节目：专辑、歌手、收藏到歌单、心动模式、相似歌曲、下载、音质都不适用，整项隐藏
     isPodcast: Boolean = false,
-    showMiniLyric: Boolean = true,
-    onToggleMiniLyric: (Boolean) -> Unit,
     onToggleLike: () -> Unit,
     onAlbumClick: () -> Unit,
     onArtistClick: () -> Unit,
@@ -74,7 +72,6 @@ fun SongMoreOptionsSheet(
     onStartSimilarRoaming: () -> Unit,
     onInsertSimilarSongs: () -> Unit,
     onCollectClick: () -> Unit,
-    onShareClick: () -> Unit,
     onDownloadClick: () -> Unit,
     onDismiss: () -> Unit,
     songId: Long? = null
@@ -255,19 +252,6 @@ fun SongMoreOptionsSheet(
 
                 }
 
-                // 6. 分享
-                OptionRow(
-                    icon = Icons.Rounded.Share,
-                    text = "分享",
-                    onClick = {
-                        scope.launch {
-                            sheetState.hide()
-                            onDismiss()
-                            onShareClick()
-                        }
-                    }
-                )
-
                 if (!isPodcast) {
                     // 下载
                     OptionRow(
@@ -428,34 +412,7 @@ fun SongMoreOptionsSheet(
                     }
                 )
 
-                // 10. 播放页小歌词开关
-                if (!isPodcast) Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onToggleMiniLyric(!showMiniLyric) }
-                        .padding(horizontal = 20.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Subtitles,
-                        contentDescription = null,
-                        tint = MelodiaColors.TextPrimary.copy(alpha = 0.7f),
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(
-                        text = "播放页小歌词",
-                        color = MelodiaColors.TextPrimary,
-                        fontSize = 15.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    MelodiaSwitch(
-                        checked = showMiniLyric,
-                        onCheckedChange = onToggleMiniLyric
-                    )
-                }
+
         }
     }
 }

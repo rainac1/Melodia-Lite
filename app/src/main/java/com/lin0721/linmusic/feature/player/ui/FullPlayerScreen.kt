@@ -8,7 +8,6 @@ import com.lin0721.linmusic.core.plugin.PlayerLayoutArea
 import com.lin0721.linmusic.core.plugin.LocalLayoutCoverColors
 import com.lin0721.linmusic.core.plugin.LocalLayoutEnvironment
 import com.lin0721.linmusic.core.plugin.LocalPlayerLayouts
-import com.lin0721.linmusic.core.plugin.LayoutNodeType
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -29,7 +28,6 @@ import com.lin0721.linmusic.core.ui.skin.isCoverBackdrop
 import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
 import com.lin0721.linmusic.core.ui.theme.LightStatusBarIconsWhile
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
-import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.core.ui.theme.ScreenSlideDurationMs
 import androidx.compose.foundation.background
@@ -65,11 +63,9 @@ import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.ArtistPickerEntry
 import com.lin0721.linmusic.core.ui.components.ArtistPickerSheet
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
-import com.lin0721.linmusic.core.share.ShareCardKind
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.playerBackdrop
 import com.lin0721.linmusic.core.ui.theme.themedCoverBase
-import com.lin0721.linmusic.feature.player.share.LyricShareSheet
 import com.lin0721.linmusic.core.ui.theme.FallbackBackdropPalette
 import com.lin0721.linmusic.core.ui.theme.MelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
@@ -82,7 +78,6 @@ import com.lin0721.linmusic.core.ui.theme.melodiaStatusBarTopPadding
 import com.lin0721.linmusic.core.ui.theme.rememberMelodiaOrientationClass
 import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPlayerPanelAtStart
 import com.lin0721.linmusic.core.player.PlaySource
-import com.lin0721.linmusic.core.preferences.FullPlayerCard
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import dev.chrisbanes.haze.HazeState
@@ -125,9 +120,7 @@ fun FullPlayerScreen(
     // 侧栏→全屏的铺开进度（0 侧栏、1 全屏）与全屏时的卡片宽度。横屏全屏换成宽屏两栏排版，
     // 铺开过程中两套排版各按最终宽度排一次、交叉淡入淡出；竖屏全屏沿用竖排列表，按比例放宽并居中
     sidebarFullscreenProgress: (() -> Float)? = null,
-    fullscreenContentWidth: Dp = Dp.Unspecified,
-    onLyricsFullScreenChange: (Boolean) -> Unit = {},
-    onLyricsControlsVisibilityChange: (Boolean) -> Unit = {}
+    fullscreenContentWidth: Dp = Dp.Unspecified
 ) {
     // 播放区透出皮肤背景图时整页按沉浸区深色配色（深色遮罩配白字），浅色主题下也一样
     val playerBackdrop = isCoverBackdrop(CoverGroup.PLAYER)
@@ -153,9 +146,7 @@ fun FullPlayerScreen(
             onToggleSidebarFullscreen = onToggleSidebarFullscreen,
             isSidebarFullscreen = isSidebarFullscreen,
             sidebarFullscreenProgress = sidebarFullscreenProgress,
-            fullscreenContentWidth = fullscreenContentWidth,
-            onLyricsFullScreenChange = onLyricsFullScreenChange,
-            onLyricsControlsVisibilityChange = onLyricsControlsVisibilityChange
+            fullscreenContentWidth = fullscreenContentWidth
         )
     }
 }
@@ -193,9 +184,7 @@ private fun FullPlayerScreenContent(
     // 侧栏→全屏的铺开进度（0 侧栏、1 全屏）与全屏时的卡片宽度。横屏全屏换成宽屏两栏排版，
     // 铺开过程中两套排版各按最终宽度排一次、交叉淡入淡出；竖屏全屏沿用竖排列表，按比例放宽并居中
     sidebarFullscreenProgress: (() -> Float)? = null,
-    fullscreenContentWidth: Dp = Dp.Unspecified,
-    onLyricsFullScreenChange: (Boolean) -> Unit = {},
-    onLyricsControlsVisibilityChange: (Boolean) -> Unit = {}
+    fullscreenContentWidth: Dp = Dp.Unspecified
 ) {
     val motion = LocalUiMotion.current
     if (currentTrack == null) return
@@ -206,19 +195,11 @@ private fun FullPlayerScreenContent(
     val settingsPreferences: SettingsPreferences = koinInject()
     // 输出设备切换为 Android 专属能力，不在跨平台接口里
     val playerManager: PlayerManager = koinInject()
-    val lyricPositionProvider: () -> Long = {
-        // 保留采样状态的读取依赖，让暂停时的手动跳转也触发重绘；
-        // 扫色进度使用共用的绘制时钟，只在 PlayerManager 中平滑推进和校正。
-        currentPositionProvider()
-        playerManager.currentPositionNow()
-    }
     val songDetailState by viewModel.songDetailState.collectAsStateWithLifecycle()
     val songDetail = songDetailState.songDetail
     // 大播放按钮专用：弱网缓冲期间也要立刻显示"暂停中"图标，不能等音频真正流出的 isPlaying；
-    // 歌词区/顶栏/队列等其他地方仍按严格的 isPlaying 判断，不受影响
+    // 顶栏/队列等其他地方仍按严格的 isPlaying 判断，不受影响
     val playWhenReady by viewModel.playerManager.playWhenReady.collectAsStateWithLifecycle()
-    val currentLyricIndex by viewModel.currentLyricIndex.collectAsStateWithLifecycle()
-    val activeLyricIndices by viewModel.activeLyricIndices.collectAsStateWithLifecycle()
     val playContext by viewModel.playerManager.playContext.collectAsStateWithLifecycle()
     val playSource by viewModel.playerManager.playSource.collectAsStateWithLifecycle()
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsStateWithLifecycle()
@@ -232,24 +213,7 @@ private fun FullPlayerScreenContent(
     val previousQueueItem by viewModel.playerManager.previousQueueItem.collectAsStateWithLifecycle()
     val nextQueueItem by viewModel.playerManager.nextQueueItem.collectAsStateWithLifecycle()
     var showQueueSheet by remember { mutableStateOf(false) }
-    var isLyricsFullScreen by remember { mutableStateOf(false) }
-    // 手机全屏歌词盖住状态栏且是有色底，浅色主题下状态栏图标切为浅色
-    LightStatusBarIconsWhile(isPlayerOpen && isLyricsFullScreen && onToggleSidebarFullscreen == null)
-
-    LaunchedEffect(isLyricsFullScreen) {
-        onLyricsFullScreenChange(isLyricsFullScreen)
-        if (!isLyricsFullScreen) {
-            onLyricsControlsVisibilityChange(true)
-        }
-    }
-    DisposableEffect(Unit) {
-        onDispose {
-            onLyricsFullScreenChange(false)
-            onLyricsControlsVisibilityChange(true)
-        }
-    }
     var showMoreOptionsSheet by remember { mutableStateOf(false) }
-    var showShareCard by remember { mutableStateOf(false) }
     var showTimerSheet by remember { mutableStateOf(false) }
     var showCommentsSheet by remember { mutableStateOf(false) }
     var showCommentFloor by remember { mutableStateOf(false) }
@@ -295,7 +259,7 @@ private fun FullPlayerScreenContent(
         null
     }
     val podcast by viewModel.podcastState.collectAsStateWithLifecycle()
-    // 播客节目没有歌词、歌曲评论与歌手专辑信息，信息卡与小歌词整体不展示
+    // 播客节目没有歌曲评论与歌手专辑信息，信息卡整体不展示
     val storedCardLayout by viewModel.fullPlayerCardLayout.collectAsStateWithLifecycle()
     val cardLayout = if (podcast.isPodcast) emptyList() else storedCardLayout
     val pluginCards = LocalPluginCards.current
@@ -306,8 +270,6 @@ private fun FullPlayerScreenContent(
         storedCardEntries.isEmpty() -> PlayerCardEntries.merge(null, emptyList())
         else -> storedCardEntries
     }
-    val storedShowMiniLyric by viewModel.showMiniLyric.collectAsStateWithLifecycle()
-    val showMiniLyric = storedShowMiniLyric && !podcast.isPodcast
     val connectedDevice = rememberCurrentOutputDevice()
 
     LaunchedEffect(viewModel) {
@@ -318,10 +280,6 @@ private fun FullPlayerScreenContent(
 
     BackHandler(enabled = showQueueSheet) {
         showQueueSheet = false
-    }
-
-    BackHandler(enabled = isLyricsFullScreen) {
-        isLyricsFullScreen = false
     }
 
     BackHandler(enabled = showMoreOptionsSheet) {
@@ -350,62 +308,6 @@ private fun FullPlayerScreenContent(
 
     BackHandler(enabled = showDownloadQualitySheet) {
         showDownloadQualitySheet = false
-    }
-
-    var showLyricsSettingsSheet by remember { mutableStateOf(false) }
-    BackHandler(enabled = showLyricsSettingsSheet) {
-        showLyricsSettingsSheet = false
-    }
-
-    val fullScreenLyricTextSize by settingsPreferences.fullScreenLyricTextSize.collectAsStateWithLifecycle(initialValue = 22)
-    val fullScreenLyricAlignment by settingsPreferences.fullScreenLyricAlignment.collectAsStateWithLifecycle(initialValue = "left")
-    val fullScreenLyricSecondaryMode by settingsPreferences.fullScreenLyricSecondaryMode.collectAsStateWithLifecycle(initialValue = "translation")
-    val fullScreenKaraokeAdvancedEffect by settingsPreferences.fullScreenKaraokeAdvancedEffect.collectAsStateWithLifecycle(initialValue = true)
-    val fullScreenKaraokeGlowEffect by settingsPreferences.fullScreenKaraokeGlowEffect.collectAsStateWithLifecycle(initialValue = false)
-    val neteaseLyricsEnabled by settingsPreferences.neteaseLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
-    val qqLyricsEnabled by settingsPreferences.qqLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
-    val amllLyricsEnabled by settingsPreferences.amllLyricsEnabled.collectAsStateWithLifecycle(initialValue = true)
-    val fullScreenLyricLineSpacing by settingsPreferences.fullScreenLyricLineSpacing.collectAsStateWithLifecycle(initialValue = 24)
-    val fullScreenLyricSecondarySpacing by settingsPreferences.fullScreenLyricSecondarySpacing.collectAsStateWithLifecycle(initialValue = 6)
-
-    val hasTranslation = remember(songDetailState.lyrics) { songDetailState.lyrics.any { it.translation != null } }
-    val hasRoma = remember(songDetailState.lyrics) { songDetailState.lyrics.any { it.roma != null } }
-
-    val handleToggleSecondaryMode: () -> Unit = {
-        val nextMode = when {
-            hasTranslation && hasRoma -> when (fullScreenLyricSecondaryMode) {
-                "translation" -> "roma"
-                "roma" -> "none"
-                else -> "translation"
-            }
-            hasTranslation -> when (fullScreenLyricSecondaryMode) {
-                "translation" -> "none"
-                else -> "translation"
-            }
-            hasRoma -> when (fullScreenLyricSecondaryMode) {
-                "roma" -> "none"
-                else -> "roma"
-            }
-            else -> "none"
-        }
-        coroutineScope.launch {
-            settingsPreferences.saveFullScreenLyricSecondaryMode(nextMode)
-        }
-    }
-
-    // 宽屏两栏的歌词区当前是否在组合中（滑到卡片区后移出）
-    var isWideLyricsVisible by remember { mutableStateOf(false) }
-
-    // 全屏歌词与宽屏歌词区的逐字滚动都需要更密的进度回调
-    DisposableEffect(isLyricsFullScreen || isWideLyricsVisible, isPlaying) {
-        if ((isLyricsFullScreen || isWideLyricsVisible) && isPlaying) {
-            viewModel.playerManager.setPositionUpdateInterval(50L)
-        } else {
-            viewModel.playerManager.setPositionUpdateInterval(1000L)
-        }
-        onDispose {
-            viewModel.playerManager.setPositionUpdateInterval(1000L)
-        }
     }
 
     var colorPalette by remember(currentTrack.mediaId) {
@@ -465,22 +367,14 @@ private fun FullPlayerScreenContent(
         ?.takeIf { it > 0 && !songDetailState.isLocalOnly && !podcast.isPodcast }
         ?.let { "https://music.163.com/song?id=$it" }
 
-    // 分享卡片不依赖云端 id，本地歌曲同样可用
-    fun shareCurrentSong() {
-        showMoreOptionsSheet = false
-        showShareCard = true
-    }
-
     val listState = rememberLazyListState()
     val hazeState = remember { HazeState() }
-    val lyricsCoverage = remember { LyricsOverlayCoverage() }
     val scrollMetrics = rememberFullPlayerScrollMetrics(listState)
     val density = LocalDensity.current
     val navigationBarBottomPadding = melodiaNavigationBarBottomPadding()
     val pluginLayouts = LocalPlayerLayouts.current
     val pluginFullLayout = pluginLayouts[PlayerLayoutArea.ANDROID_FULL_PLAYER]
     val pluginWideLayout = pluginLayouts[PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE]
-    val pluginLyricsLayout = pluginLayouts[PlayerLayoutArea.ANDROID_LYRICS]
     // 插件关掉卡片流时首屏就是整页
     val showInfoCards = pluginFullLayout?.frame?.cards != false
     val coverFitInsetPx = rememberCoverFitInsetPx(
@@ -496,48 +390,19 @@ private fun FullPlayerScreenContent(
         listState = listState,
         enabled = allCardsHidden,
         gapCount = FullPlayerFillGapCount,
-        contentKeys = if (showMiniLyric) FullPlayerPlaybackItemKeys else FullPlayerPlaybackItemKeysWithoutMiniLyric,
+        contentKeys = FullPlayerPlaybackItemKeys,
         bottomReserve = fillTail
     )
     val animatedCoverPadding by animateDpAsState(
-        targetValue = if (showMiniLyric) MelodiaSpacing.lg else 13.dp,
+        targetValue = 13.dp,
         animationSpec = uiTween(durationMillis = 300, easing = FastOutSlowInEasing),
         label = "cover_padding"
     )
     val animatedItemGap by animateDpAsState(
-        targetValue = if (showMiniLyric) 0.dp else 3.dp,
+        targetValue = 3.dp,
         animationSpec = uiTween(durationMillis = 300, easing = FastOutSlowInEasing),
         label = "item_gap"
     )
-
-    val scrollToLyricsCard: () -> Unit = {
-        val visible = visibleInfoCards(songDetailState, commentsState, cardLayout)
-        val lyricCardIndex = visible.cards.indexOf(FullPlayerCard.LYRICS)
-        if (lyricCardIndex >= 0) {
-            val fallbackIndex = 6 + lyricCardIndex
-            coroutineScope.launch {
-                val layoutInfo = listState.layoutInfo
-                val visibleItem = layoutInfo.visibleItemsInfo.find { it.key == FullPlayerCard.LYRICS.key }
-                val targetIndex = visibleItem?.index ?: fallbackIndex
-                val cardHeightPx = visibleItem?.size ?: with(density) { 300.dp.roundToPx() }
-                val bottomReservePx = with(density) { (80.dp + navigationBarBottomPadding).roundToPx() }
-                val desiredTopPx = (layoutInfo.viewportSize.height - cardHeightPx - bottomReservePx).coerceAtLeast(0)
-
-                if (visibleItem != null) {
-                    val deltaToScroll = (visibleItem.offset - desiredTopPx).toFloat()
-                    if (kotlin.math.abs(deltaToScroll) > 1f) {
-                        motion.scrollBy(listState, deltaToScroll)
-                    }
-                } else {
-                    motion.scrollToItem(
-                        listState,
-                        index = targetIndex,
-                        scrollOffset = -desiredTopPx
-                    )
-                }
-            }
-        }
-    }
 
     val isLandscape = rememberMelodiaOrientationClass() == MelodiaOrientationClass.Landscape
     val isPanelAtStart = LocalMelodiaPlayerPanelAtStart.current
@@ -581,7 +446,6 @@ private fun FullPlayerScreenContent(
             offsetY = 0f
             isScrollGestureActive = false
             isGestureStartedAtTop = true
-            isLyricsFullScreen = false
         }
     }
 
@@ -623,7 +487,7 @@ private fun FullPlayerScreenContent(
         }
     }
 
-    val pluginParts = if (pluginFullLayout != null || pluginWideLayout != null || pluginLyricsLayout != null) {
+    val pluginParts = if (pluginFullLayout != null || pluginWideLayout != null) {
         FullPlayerLayoutParts(
             title = displayedTitle,
             artist = displayedArtist,
@@ -636,20 +500,16 @@ private fun FullPlayerScreenContent(
             currentKey = currentTrack.mediaId,
             previousKey = previousQueueItem?.songId?.toString(),
             nextKey = nextQueueItem?.songId?.toString(),
-            currentLyricIndex = currentLyricIndex,
-            isPlaying = isPlaying,
             playWhenReady = playWhenReady,
             currentPositionProvider = currentPositionProvider,
             duration = duration,
             playMode = playMode,
-            animateLyricsMesh = isPlaying && !isLyricsFullScreen,
             connectedDevice = connectedDevice,
             qualityLabel = qualityLabel,
             onToggleLike = viewModel::toggleLike,
             onToggleSubscribe = viewModel::toggleSubscribe,
             onArtistClick = openSongArtist,
             onAlbumClick = openSongAlbum,
-            onMiniLyricClick = if (showInfoCards) scrollToLyricsCard else ({ isLyricsFullScreen = true }),
             onSeek = viewModel::seekToTime,
             onTogglePlay = onTogglePlay,
             onPlayNext = viewModel.playerManager::playNext,
@@ -659,18 +519,13 @@ private fun FullPlayerScreenContent(
             onToggleRepeat = viewModel.playerManager::toggleRepeat,
             onOutputDeviceClick = { showOutputDeviceSheet = true },
             onQueueClick = { showQueueSheet = true },
-            onShareClick = { shareCurrentSong() },
             onMoreClick = { showMoreOptionsSheet = true },
-            onOpenFullScreenLyrics = { isLyricsFullScreen = true },
             onClose = onClose,
             onToggleSidebarFullscreen = onToggleSidebarFullscreen,
             isSidebarFullscreen = isSidebarFullscreen,
             playContext = playContext,
             podcastRadioName = podcast.radioName,
             onPlaylistClick = openPlaylistSource,
-            activeLyricIndices = activeLyricIndices,
-            lyricPositionProvider = lyricPositionProvider,
-            lyricsHighlightColor = if (MelodiaColors.IsDark) colors.textHighlight else MelodiaColors.TextTertiary,
             sleepTimerActive = sleepTimerRemaining > 0L,
             onSleepTimerClick = { showTimerSheet = true },
             onCommentsClick = { showCommentsSheet = true }
@@ -706,7 +561,6 @@ private fun FullPlayerScreenContent(
     ) {
         PlayerBackdrop(
             base = colors.base,
-            mode = BackdropMode.Collapsed,
             translationYProvider = { if (showColumnLayout) scrollMetrics.backgroundTranslationY else 0f }
         )
 
@@ -747,9 +601,7 @@ private fun FullPlayerScreenContent(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .haze(hazeState)
-                        // 全屏歌词完整盖住时整页不可见，跳过绘制，避免随进度刷新反复重绘并上传封面贴图
-                        .drawWithContent { if (!lyricsCoverage.isCovering) drawContent() },
+                        .haze(hazeState),
                     contentPadding = PaddingValues(
                         start = startInset,
                         end = endInset,
@@ -772,7 +624,6 @@ private fun FullPlayerScreenContent(
                         }
                     } else fullPlayerPlaybackSection(
                         songState = songDetailState,
-                        colors = colors,
                         coverUrl = coverUrl,
                         previousCoverUrl = previousCoverUrl,
                         nextCoverUrl = nextCoverUrl,
@@ -789,8 +640,6 @@ private fun FullPlayerScreenContent(
                         playContext = playContext,
                         podcast = podcast,
                         onToggleSubscribe = viewModel::toggleSubscribe,
-                        currentLyricIndex = currentLyricIndex,
-                        isPlaying = isPlaying,
                         playWhenReady = playWhenReady,
                         currentPositionProvider = currentPositionProvider,
                         duration = duration,
@@ -801,7 +650,6 @@ private fun FullPlayerScreenContent(
                         onArtistClick = openSongArtist,
                         onAlbumClick = openSongAlbum,
                         onPlaylistClick = openPlaylistSource,
-                        onMiniLyricClick = scrollToLyricsCard,
                         onSeek = viewModel::seekToTime,
                         onTogglePlay = onTogglePlay,
                         onPlayNext = viewModel.playerManager::playNext,
@@ -812,10 +660,8 @@ private fun FullPlayerScreenContent(
                         onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
                         onOutputDeviceClick = { showOutputDeviceSheet = true },
                         onQueueClick = { showQueueSheet = true },
-                        onShareClick = { shareCurrentSong() },
                         connectedDevice = connectedDevice,
                         qualityLabel = qualityLabel,
-                        showMiniLyric = showMiniLyric,
                         baseCoverPadding = animatedCoverPadding,
                         itemGap = animatedItemGap,
                         fillGap = if (allCardsHidden) fillGap else null,
@@ -824,19 +670,9 @@ private fun FullPlayerScreenContent(
 
                     if (showInfoCards) fullPlayerInfoSection(
                         songState = songDetailState,
-                        colors = colors,
                         commentsState = commentsState,
-                        currentLyricIndex = currentLyricIndex,
-                        // 全屏歌词盖住播放页时歌词卡不可见，光斑无需游走
-                        animateLyricsMesh = isPlaying && !isLyricsFullScreen,
-                        // 插件布局已放了歌词卡时，下方列表不再重复
-                        cardLayout = if (pluginFullLayout?.contains(LayoutNodeType.LYRICS_CARD) == true) {
-                            cardLayout.filter { it.card != FullPlayerCard.LYRICS }
-                        } else {
-                            cardLayout
-                        },
+                        cardLayout = cardLayout,
                         cardEntries = cardEntries,
-                        onOpenFullScreenLyrics = { isLyricsFullScreen = true },
                         onCommentsClick = { showCommentsSheet = true },
                         onRetryComments = viewModel::retryComments,
                         onFollowArtistClick = { artistId -> viewModel.toggleArtistFollow(artistId) },
@@ -900,7 +736,6 @@ private fun FullPlayerScreenContent(
                         onMoreClick = { showMoreOptionsSheet = true },
                         onToggleSidebarFullscreen = onToggleSidebarFullscreen,
                         isSidebarFullscreen = isSidebarFullscreen,
-                        onFullscreenLyricsClick = { isLyricsFullScreen = true },
                         onPlaylistClick = openPlaylistSource,
                         modifier = barModifier
                     )
@@ -956,28 +791,10 @@ private fun FullPlayerScreenContent(
                     ActionButtons(
                         onOutputDeviceClick = { showOutputDeviceSheet = true },
                         onQueueClick = { showQueueSheet = true },
-                        onShareClick = { shareCurrentSong() },
                         connectedDevice = connectedDevice,
-                        qualityLabel = qualityLabel,
-                        showLyricsControls = !podcast.isPodcast,
-                        secondaryMode = fullScreenLyricSecondaryMode,
-                        hasTranslation = hasTranslation,
-                        hasRoma = hasRoma,
-                        onToggleSecondaryMode = handleToggleSecondaryMode,
-                        onLyricsSettingsClick = { showLyricsSettingsSheet = true }
+                        qualityLabel = qualityLabel
                     )
                 },
-                lyrics = songDetailState.lyrics,
-                isLyricsLoading = songDetailState.isLyricsLoading,
-                currentLyricIndex = currentLyricIndex,
-                activeLyricIndices = activeLyricIndices,
-                // 宽屏两栏的歌词直接铺在页面上，浅色下未唱到的行改用三级文字色
-                highlightColor = if (MelodiaColors.IsDark) colors.textHighlight else MelodiaColors.TextTertiary,
-                currentPositionProvider = lyricPositionProvider,
-                isPlaying = isPlaying,
-                onLyricClick = { line -> viewModel.seekToTime(line.timeMs) },
-                onSeek = viewModel::seekToTime,
-                onLyricsVisibleChange = { isWideLyricsVisible = it },
                 leftFraction = pluginWideLayout?.frame?.split,
                 pluginLeftColumn = if (pluginWideLayout != null && pluginParts != null) {
                     {
@@ -998,7 +815,6 @@ private fun FullPlayerScreenContent(
                 infoCards = {
                     fullPlayerInfoGrid(
                         songState = songDetailState,
-                        colors = colors,
                         commentsState = commentsState,
                         cardLayout = cardLayout,
                         cardEntries = cardEntries,
@@ -1012,55 +828,6 @@ private fun FullPlayerScreenContent(
                     )
                 },
                 modifier = wideLayoutModifier
-            )
-        }
-
-        FullPlayerLyricsOverlay(
-            visible = isLyricsFullScreen,
-            coverage = lyricsCoverage,
-            songState = songDetailState,
-            colors = colors,
-            currentLyricIndex = currentLyricIndex,
-            activeLyricIndices = activeLyricIndices,
-            title = title,
-            artist = artist,
-            coverUrl = coverUrl,
-            songLink = songLink,
-            hazeState = hazeState,
-            isPlaying = isPlaying,
-            currentPositionProvider = currentPositionProvider,
-            lyricPositionProvider = lyricPositionProvider,
-            duration = duration,
-            playMode = playMode,
-            onSeek = { timeMs ->
-                viewModel.seekToTime(timeMs)
-            },
-            onClose = { isLyricsFullScreen = false },
-            onControlsVisibilityChange = onLyricsControlsVisibilityChange,
-            onTogglePlay = onTogglePlay,
-            onPlayNext = viewModel.playerManager::playNext,
-            onPlayPrevious = viewModel.playerManager::playPrevious,
-            onToggleShuffle = viewModel.playerManager::toggleShuffle,
-            onToggleRepeat = viewModel.playerManager::toggleRepeat,
-            onMoreClick = { showMoreOptionsSheet = true },
-            pluginContent = if (pluginLyricsLayout != null && pluginParts != null) {
-                { slots -> LyricsPagePluginContent(pluginLyricsLayout, pluginParts, isLandscape, slots) }
-            } else {
-                null
-            }
-        )
-
-        if (showShareCard) {
-            LyricShareSheet(
-                lyrics = songDetailState.lyrics,
-                currentIndex = currentLyricIndex,
-                title = title,
-                artist = artist,
-                coverUrl = coverUrl,
-                durationMs = duration,
-                songLink = songLink,
-                initialKind = ShareCardKind.SONG,
-                onDismiss = { showShareCard = false }
             )
         }
 
@@ -1090,9 +857,7 @@ private fun FullPlayerScreenContent(
             coverUrl = coverUrl,
             sleepTimerRemaining = sleepTimerRemaining,
             activeQuality = activeQuality,
-            showMiniLyric = showMiniLyric,
             isPodcast = podcast.isPodcast,
-            onToggleMiniLyric = viewModel::toggleMiniLyric,
             onPlayAtIndex = { viewModel.playerManager.playAtIndex(it) },
             onRemoveAtIndex = { viewModel.playerManager.removeFromQueue(it) },
             onMoveQueueItem = { from, to -> viewModel.playerManager.moveInQueue(from, to) },
@@ -1140,7 +905,6 @@ private fun FullPlayerScreenContent(
                     viewModel.prepareCollectDialog(songId)
                 }
             },
-            onShareClick = { shareCurrentSong() },
             onDownloadClick = { showDownloadQualitySheet = true },
             onSaveCollection = { songId, items -> viewModel.savePlaylistCollection(songId, items) },
             onSaveNewCollection = { name, songId -> viewModel.createPlaylistAndAddSong(name, songId) },
@@ -1237,53 +1001,6 @@ private fun FullPlayerScreenContent(
             )
         }
 
-        if (showLyricsSettingsSheet) {
-            FullScreenLyricsSettingsSheet(
-                fontSize = fullScreenLyricTextSize,
-                onFontSizeChange = { size ->
-                    coroutineScope.launch { settingsPreferences.saveFullScreenLyricTextSize(size) }
-                },
-                lineSpacing = fullScreenLyricLineSpacing,
-                onLineSpacingChange = { spacing ->
-                    coroutineScope.launch { settingsPreferences.saveFullScreenLyricLineSpacing(spacing) }
-                },
-                secondarySpacing = fullScreenLyricSecondarySpacing,
-                onSecondarySpacingChange = { spacing ->
-                    coroutineScope.launch { settingsPreferences.saveFullScreenLyricSecondarySpacing(spacing) }
-                },
-                alignment = fullScreenLyricAlignment,
-                onAlignmentChange = { align ->
-                    coroutineScope.launch { settingsPreferences.saveFullScreenLyricAlignment(align) }
-                },
-                secondaryMode = fullScreenLyricSecondaryMode,
-                onSecondaryModeChange = { mode ->
-                    coroutineScope.launch { settingsPreferences.saveFullScreenLyricSecondaryMode(mode) }
-                },
-                hasTranslation = hasTranslation,
-                hasRoma = hasRoma,
-                advancedKaraokeEffect = fullScreenKaraokeAdvancedEffect,
-                onAdvancedKaraokeEffectChange = { enabled ->
-                    coroutineScope.launch { settingsPreferences.saveFullScreenKaraokeAdvancedEffect(enabled) }
-                },
-                karaokeGlowEffect = fullScreenKaraokeGlowEffect,
-                onKaraokeGlowEffectChange = { enabled ->
-                    coroutineScope.launch { settingsPreferences.saveFullScreenKaraokeGlowEffect(enabled) }
-                },
-                neteaseLyricsEnabled = neteaseLyricsEnabled,
-                onNeteaseLyricsEnabledChange = { enabled ->
-                    coroutineScope.launch { settingsPreferences.saveNeteaseLyricsEnabled(enabled) }
-                },
-                qqLyricsEnabled = qqLyricsEnabled,
-                onQqLyricsEnabledChange = { enabled ->
-                    coroutineScope.launch { settingsPreferences.saveQqLyricsEnabled(enabled) }
-                },
-                amllLyricsEnabled = amllLyricsEnabled,
-                onAmllLyricsEnabledChange = { enabled ->
-                    coroutineScope.launch { settingsPreferences.saveAmllLyricsEnabled(enabled) }
-                },
-                onDismiss = { showLyricsSettingsSheet = false }
-            )
-        }
     }
 }
 

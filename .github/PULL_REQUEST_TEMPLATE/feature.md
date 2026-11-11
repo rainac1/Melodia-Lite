@@ -12,7 +12,6 @@
 
 - [ ] Android 手机
 - [ ] Android 平板
-- [ ] Windows 桌面端
 
 ## 改动
 
@@ -22,14 +21,13 @@
 
 ## 界面变化
 
-<!-- 涉及 UI 时附截图或录屏，并注明手机端 / 桌面端；无界面变化可删除本节 -->
+<!-- 涉及 UI 时附截图或录屏，并注明手机 / 平板；无界面变化可删除本节 -->
 
 ## 测试与验证
 
 已执行（与 CI 保持一致，勾选已通过项）：
 
-- [ ] `./gradlew :app:testDebugUnitTest :shared:desktopTest`
-- [ ] `./gradlew :desktopApp:compileKotlin`
+- [ ] `./gradlew :app:testDebugUnitTest`
 - [ ] `./gradlew :app:assembleRelease`
 
 手动验证步骤：

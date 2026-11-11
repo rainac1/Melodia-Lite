@@ -21,12 +21,10 @@ import androidx.compose.ui.Modifier
 import com.lin0721.linmusic.core.comment.ui.CommentsPreviewCard
 import com.lin0721.linmusic.core.comment.ui.CommentsState
 import com.lin0721.linmusic.core.preferences.FullPlayerCard
-import com.lin0721.linmusic.core.player.LyricsSource
 import com.lin0721.linmusic.core.preferences.FullPlayerCardSetting
 import com.lin0721.linmusic.core.ui.theme.ImmersiveTheme
 import com.lin0721.linmusic.core.ui.theme.LocalUiMotion
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
 import com.lin0721.linmusic.core.ui.theme.uiTween
 
 private const val EDIT_CARDS_KEY = "edit_cards"
@@ -40,12 +38,8 @@ internal fun visibleInfoCards(
     commentsState: CommentsState,
     cardLayout: List<FullPlayerCardSetting>
 ): VisibleInfoCards {
-    val lyrics = songState.lyrics
-    val isPureMusic = lyrics.size == 1 && lyrics[0].text == "纯音乐"
-
     // 每格 (是否已出结论, 结论是否要展示)
     fun slotState(card: FullPlayerCard): Pair<Boolean, Boolean> = when (card) {
-        FullPlayerCard.LYRICS -> Pair(!songState.isLyricsLoading, lyrics.isNotEmpty() && !isPureMusic)
         FullPlayerCard.COMMENTS_PREVIEW -> Pair(commentsState !is CommentsState.Loading, true)
         FullPlayerCard.SONG_DETAIL -> Pair(!songState.isSongWikiLoading, songState.songWiki != null)
         FullPlayerCard.MUSIC_MEMORY -> Pair(!songState.isSongWikiLoading, songState.songWiki?.musicMemory != null)
@@ -61,9 +55,7 @@ internal fun visibleInfoCards(
     for (setting in cardLayout) {
         if (!setting.visible) continue
         // 本地未匹配歌曲不请求在线数据，评论状态会停留在上一首或 Loading，需直接跳过；外部平台歌曲另有 QQ 音乐评论
-        if (songState.isLocalOnly && setting.card != FullPlayerCard.LYRICS &&
-            !(songState.isExternal && setting.card == FullPlayerCard.COMMENTS_PREVIEW)
-        ) continue
+        if (songState.isLocalOnly && !(songState.isExternal && setting.card == FullPlayerCard.COMMENTS_PREVIEW)) continue
         val (settled, ready) = slotState(setting.card)
         if (!settled) return VisibleInfoCards(cards, allSettled = false)
         if (ready) cards += setting.card
@@ -71,17 +63,13 @@ internal fun visibleInfoCards(
     return VisibleInfoCards(cards, allSettled = true)
 }
 
-// 播放器信息区（竖排）：歌词卡、评论预览、歌曲详情、回忆坐标、歌手简介、歌手专辑、相似歌手，按用户配置排序
+// 播放器信息区（竖排）：评论预览、歌曲详情、回忆坐标、歌手简介、歌手专辑、相似歌手，按用户配置排序
 fun LazyListScope.fullPlayerInfoSection(
     songState: PlayerSongDetailState,
-    colors: PlayerBackdropPalette,
     commentsState: CommentsState,
-    currentLyricIndex: Int,
-    animateLyricsMesh: Boolean,
     cardLayout: List<FullPlayerCardSetting>,
     // 含插件卡片的完整顺序
     cardEntries: List<PlayerCardEntry>,
-    onOpenFullScreenLyrics: () -> Unit,
     onCommentsClick: () -> Unit,
     onRetryComments: () -> Unit,
     onFollowArtistClick: (Long?) -> Unit,
@@ -102,11 +90,7 @@ fun LazyListScope.fullPlayerInfoSection(
                 FullPlayerInfoCard(
                     card = card,
                     songState = songState,
-                    colors = colors,
                     commentsState = commentsState,
-                    currentLyricIndex = currentLyricIndex,
-                    animateLyricsMesh = animateLyricsMesh,
-                    onOpenFullScreenLyrics = onOpenFullScreenLyrics,
                     onCommentsClick = onCommentsClick,
                     onRetryComments = onRetryComments,
                     onFollowArtistClick = onFollowArtistClick,
@@ -121,10 +105,9 @@ fun LazyListScope.fullPlayerInfoSection(
 }
 
 // 播放器信息区（宽屏两列网格）：按用户配置排序，关于艺人与歌曲百科都可见时并排成一行、落在两者中靠前的位置，
-// 其余卡片各占满一行。出现规则与竖排一致，歌词卡不展示（宽屏已有完整歌词区）
+// 其余卡片各占满一行。出现规则与竖排一致
 fun LazyListScope.fullPlayerInfoGrid(
     songState: PlayerSongDetailState,
-    colors: PlayerBackdropPalette,
     commentsState: CommentsState,
     cardLayout: List<FullPlayerCardSetting>,
     cardEntries: List<PlayerCardEntry>,
@@ -137,7 +120,7 @@ fun LazyListScope.fullPlayerInfoGrid(
     onEditCardsClick: () -> Unit
 ) {
     val visible = visibleInfoCards(songState, commentsState, cardLayout)
-    val cards = visible.cards - FullPlayerCard.LYRICS
+    val cards = visible.cards
     val pairedCards = listOf(FullPlayerCard.ABOUT_ARTIST, FullPlayerCard.SONG_DETAIL)
     val rows = buildList {
         var pairAdded = false
@@ -167,11 +150,7 @@ fun LazyListScope.fullPlayerInfoGrid(
                             FullPlayerInfoCard(
                                 card = card,
                                 songState = songState,
-                                colors = colors,
                                 commentsState = commentsState,
-                                currentLyricIndex = -1,
-                                animateLyricsMesh = false,
-                                onOpenFullScreenLyrics = {},
                                 onCommentsClick = onCommentsClick,
                                 onRetryComments = onRetryComments,
                                 onFollowArtistClick = onFollowArtistClick,
@@ -220,11 +199,7 @@ private fun LazyListScope.editCardsItem(onEditCardsClick: () -> Unit) {
 private fun FullPlayerInfoCard(
     card: FullPlayerCard,
     songState: PlayerSongDetailState,
-    colors: PlayerBackdropPalette,
     commentsState: CommentsState,
-    currentLyricIndex: Int,
-    animateLyricsMesh: Boolean,
-    onOpenFullScreenLyrics: () -> Unit,
     onCommentsClick: () -> Unit,
     onRetryComments: () -> Unit,
     onFollowArtistClick: (Long?) -> Unit,
@@ -233,19 +208,6 @@ private fun FullPlayerInfoCard(
     onSelectArtist: (Int) -> Unit
 ) {
     when (card) {
-        // 歌词卡在浅色页面里保持有色底白字
-        FullPlayerCard.LYRICS -> ImmersiveTheme(colors.base) {
-            LyricsCard(
-                lyrics = songState.lyrics,
-                currentIndex = currentLyricIndex,
-                isLoading = false,
-                base = colors.base,
-                animateMesh = animateLyricsMesh,
-                isAmll = songState.lyricsSource == LyricsSource.AMLL,
-                isQrc = songState.lyricsSource == LyricsSource.QQ && songState.lyrics.any { it.words.isNotEmpty() },
-                onOpenFullScreen = onOpenFullScreenLyrics
-            )
-        }
         FullPlayerCard.COMMENTS_PREVIEW -> CommentsPreviewCard(
             commentsState = commentsState,
             cardColor = MaterialTheme.colorScheme.surface,

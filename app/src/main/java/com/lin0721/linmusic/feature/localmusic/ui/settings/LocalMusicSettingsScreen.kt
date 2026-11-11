@@ -44,7 +44,7 @@ import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 import com.lin0721.linmusic.feature.localmusic.domain.AuthorizedFolder
-import com.lin0721.linmusic.feature.player.ui.LyricCapsuleSlider
+import com.lin0721.linmusic.core.ui.components.CapsuleSlider
 import com.lin0721.linmusic.feature.settings.ui.SettingsGroupCard
 import com.lin0721.linmusic.feature.settings.ui.SettingsRow
 import com.lin0721.linmusic.feature.settings.ui.SettingsSwitchRow
@@ -110,7 +110,7 @@ fun LocalMusicSettingsScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(10.dp))
-                        LyricCapsuleSlider(
+                        CapsuleSlider(
                             value = minDurationSec,
                             onValueChange = { raw ->
                                 val stepped = (raw.toFloat() / MIN_DURATION_STEP_SEC).roundToInt() * MIN_DURATION_STEP_SEC
@@ -168,7 +168,7 @@ fun LocalMusicSettingsScreen(
                     } else {
                         SettingsRow(
                             title = "添加文件夹",
-                            subtitle = "导入其中的歌曲，并读取同名 .lrc 歌词",
+                            subtitle = "导入其中的歌曲与本地标签",
                             onClick = { folderPicker.launch(null) }
                         )
                     }

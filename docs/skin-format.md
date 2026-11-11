@@ -1,6 +1,6 @@
 # 皮肤包格式
 
-Melodia 的皮肤是一个扩展名为 `.melodiaskin` 的 zip 包，Android 与桌面端通用。在「设置 → 主题 → 皮肤（实验性）」中导入。
+Melodia 的皮肤是一个扩展名为 `.melodiaskin` 的 zip 包。在「设置 → 主题 → 皮肤（实验性）」中导入。
 
 ```
 skin.json          必需
@@ -94,7 +94,7 @@ assets/bg.jpg      可选，背景图（png / jpg / jpeg / webp）
 |---|---|
 | `header` | 页面头部渐变：歌单、歌手、个人主页、云盘、本地歌单等页头与顶栏 |
 | `cards` | 封面色卡片：首页每日推荐、新作、搜索热门、听歌识曲结果 |
-| `player` | 播放区：播放页、歌词页、正在播放面板、迷你播放器 |
+| `player` | 播放区：播放页、正在播放面板、迷你播放器 |
 
 ```json
 "cover": {
@@ -112,20 +112,18 @@ assets/bg.jpg      可选，背景图（png / jpg / jpeg / webp）
 
 透出背景图时：页面头部渐变消失；封面色卡片改为半透明面板底、正文色；播放区按沉浸式深色处理（深色遮罩配白字），浅色主题下也一样，遮罩深度取 `background.playerDim`。
 
-播放区以外的沉浸区（歌词卡、全屏歌词等）使用皮肤的深色配色 `colors.dark`，所以只支持浅色的皮肤写了 `colors.dark` 时同样会检查对比度。
-
 ### style
 
 | 字段 | 取值 | 生效范围 |
 |---|---|---|
-| `radius.pane` | 0–24，默认 8 | 桌面端三栏面板 |
-| `radius.card` | 0–32 | 播放页信息卡、桌面正在播放卡片、首页每日推荐卡 |
+| `radius.pane` | 0–24，默认 8 | 面板 |
+| `radius.card` | 0–32 | 播放页信息卡、首页每日推荐卡 |
 | `radius.cover` | 0–999 | 封面缩略图与大封面；圆形头像与直角封面不受影响 |
 | `radius.button` | 0–999 | 通用按钮、对话框按钮、播放主按钮 |
 | `font.family` | `default` / `monospace` | 全局字体 |
 | `border.panes` / `border.width` | 布尔 / 0.5–2 | 面板与浮层描边 |
 | `density` | `compact` / `normal` / `comfortable` | 歌曲列表行的上下间距（0.85 / 1 / 1.15 倍） |
-| `progress` | `line` / `thick` | `thick` 时播放进度条与桌面音量条加粗一倍 |
+| `progress` | `line` / `thick` | `thick` 时播放进度条加粗一倍 |
 | `controlStyle` | `icon` / `outlined` | `outlined` 时播放主按钮改为描边，上一首、下一首加圆形描边 |
 
 `layouts`（播放器布局）在后续版本支持，目前导入时原样保留。

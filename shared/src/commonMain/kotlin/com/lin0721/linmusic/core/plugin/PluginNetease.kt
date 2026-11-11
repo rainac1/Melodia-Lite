@@ -5,7 +5,6 @@ import com.lin0721.linmusic.core.model.Album
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
-import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
 import com.lin0721.linmusic.feature.create.data.playlistPrivacyOf
 import com.lin0721.linmusic.feature.search.domain.SearchPageResult
@@ -48,7 +47,6 @@ private const val MAX_NAME_LENGTH = 40
 // 插件能调用的全部网易方法；不在表里的一律拒绝。confirmEach 用于不可恢复的操作
 enum class PluginNeteaseMethod(val key: String, val write: Boolean = false, val confirmEach: Boolean = false) {
     SONG_DETAIL("song.detail"),
-    SONG_LYRIC("song.lyric"),
     SEARCH("search"),
     PLAYLIST_DETAIL("playlist.detail"),
     ALBUM_DETAIL("album.detail"),
@@ -74,7 +72,6 @@ enum class PluginNeteaseMethod(val key: String, val write: Boolean = false, val 
 interface PluginNeteaseBackend {
     suspend fun uid(): Long?
     suspend fun songDetails(ids: List<Long>): Result<List<Track>>
-    suspend fun lyrics(id: Long): Result<List<LyricLine>>
     suspend fun search(keyword: String, type: SearchType, offset: Int, limit: Int): Result<SearchPageResult>
     suspend fun playlistDetail(id: Long): Result<PlaylistDetail>
     suspend fun albumDetail(id: Long): Result<PlaylistDetail>
@@ -176,7 +173,6 @@ class PluginNeteaseApi(
 
     private suspend fun read(method: PluginNeteaseMethod, params: JsonObject): JsonElement = when (method) {
         PluginNeteaseMethod.SONG_DETAIL -> tracksJson(backend.songDetails(params.ids("ids")).unwrap())
-        PluginNeteaseMethod.SONG_LYRIC -> lyricsJson(backend.lyrics(params.id("id")).unwrap())
         PluginNeteaseMethod.SEARCH -> search(params)
         PluginNeteaseMethod.PLAYLIST_DETAIL -> playlistJson(backend.playlistDetail(params.id("id")).unwrap())
         PluginNeteaseMethod.ALBUM_DETAIL -> playlistJson(backend.albumDetail(params.id("id")).unwrap())
@@ -378,16 +374,6 @@ class PluginNeteaseApi(
         put("albumCount", artist.albumSize)
         put("songCount", artist.musicSize)
     }
-
-    private fun lyricsJson(lines: List<LyricLine>): JsonElement = JsonArray(
-        lines.map { line ->
-            buildJsonObject {
-                put("timeMs", line.timeMs)
-                put("text", line.text)
-                line.translation?.let { put("translation", it) }
-            }
-        }
-    )
 
     private fun <T> Result<T>.unwrap(): T = getOrElse { e ->
         if (e is CancellationException) throw e

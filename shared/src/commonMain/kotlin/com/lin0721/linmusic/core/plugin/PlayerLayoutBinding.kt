@@ -12,7 +12,6 @@ data class PlayerBindingState(
     val playing: Boolean = false,
     val liked: Boolean = false,
     val isPodcast: Boolean = false,
-    val hasLyrics: Boolean = false,
     val playMode: PlayMode = PlayMode.LIST_LOOP
 ) {
     fun text(field: String): String = when (field) {
@@ -22,7 +21,7 @@ data class PlayerBindingState(
         "source" -> source
         "quality" -> quality
         "playMode" -> playMode.bindingKey
-        "playing", "liked", "isPodcast", "hasLyrics" -> if (truthy(field)) "true" else ""
+        "playing", "liked", "isPodcast" -> if (truthy(field)) "true" else ""
         else -> ""
     }
 
@@ -30,7 +29,6 @@ data class PlayerBindingState(
         "playing" -> playing
         "liked" -> liked
         "isPodcast" -> isPodcast
-        "hasLyrics" -> hasLyrics
         else -> text(field).isNotEmpty()
     }
 
@@ -51,7 +49,7 @@ private val PlayMode.bindingKey: String
     }
 
 object PlayerBinding {
-    val FIELDS = setOf("title", "artist", "album", "source", "quality", "playing", "liked", "isPodcast", "hasLyrics", "playMode")
+    val FIELDS = setOf("title", "artist", "album", "source", "quality", "playing", "liked", "isPodcast", "playMode")
     private val PATTERN = Regex("^\\\$player\\.([A-Za-z]+)$")
     // 看起来像绑定的写法，用来区分固定文字里偶然出现的 $
     private val LOOKS_LIKE = Regex("^\\$[a-z]+(\\.[A-Za-z0-9_]+)+$")

@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 import retrofit2.http.Body
 import retrofit2.http.POST
 
-// 播放引擎所需（播放链接/歌词/相似与智能推荐）的网易云 Retrofit 接口定义。
+// 播放引擎所需（播放链接/相似与智能推荐）的网易云 Retrofit 接口定义。
 interface PlaybackApi {
 
     // 获取歌曲播放链接
@@ -24,11 +24,6 @@ interface PlaybackApi {
     suspend fun getSimiSongs(
         @Body body: SimiSongRequest
     ): SimiSongResponse
-
-    @POST("/eapi/song/lyric/v1")
-    suspend fun getLyrics(
-        @Body body: LyricRequest
-    ): LyricResponse
 
     // ================== 智能推荐歌曲 ==================
     @POST("/eapi/playmode/intelligence/list")
@@ -118,41 +113,6 @@ data class SongDetailResponse(
 ) {
     val isSuccess: Boolean get() = code == 200
 }
-
-// ======================= 歌词 DTO =======================
-
-@Serializable
-data class LyricRequest(
-    val id: Long,
-    val cp: Boolean = false,
-    val tv: Int = -1,
-    val lv: Int = -1,
-    val rv: Int = -1,
-    val kv: Int = -1,
-    val yv: Int = 99, // 默认设为 99 以请求 YRC 歌词
-    val ytv: Int = -1,
-    val yrv: Int = -1
-)
-
-@Serializable
-data class LyricResponse(
-    val code: Int = 0,
-    val lrc: LyricContent? = null,
-    val tlyric: LyricContent? = null,
-    val ytlrc: LyricContent? = null,    // 新增：YRC 对应的翻译
-    val romalrc: LyricContent? = null,
-    val yrc: LyricContent? = null, // 新增：存放逐字歌词的原始文本
-    val nolyric: Boolean = false, // 标识是否有歌词，若为 true 则通常无歌词
-    val uncollected: Boolean = false // 标识歌曲是否未收录歌词
-) {
-    val isSuccess: Boolean get() = code == 200
-}
-
-@Serializable
-data class LyricContent(
-    val version: Int = 0,
-    val lyric: String? = null
-)
 
 // ======================= 相似歌曲 DTO =======================
 

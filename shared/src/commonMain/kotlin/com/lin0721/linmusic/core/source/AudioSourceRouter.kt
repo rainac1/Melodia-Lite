@@ -171,8 +171,6 @@ class AudioSourceRouter(
         getSongPlaybackInfo(songId).map { result -> result.map { it.url } }
 
     // 委托其余方法
-    override fun getLyrics(songId: Long) = delegate.getLyrics(songId)
-    override fun getRawLyrics(songId: Long) = delegate.getRawLyrics(songId)
     override fun getSongDetail(songId: Long) = delegate.getSongDetail(songId)
     override fun getSimilarSongs(songId: Long) = delegate.getSimilarSongs(songId)
     override fun getIntelligenceSongs(songId: Long, playlistId: Long) = delegate.getIntelligenceSongs(songId, playlistId)

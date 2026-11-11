@@ -14,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.ViewSidebar
 import androidx.compose.material.icons.outlined.ViewSidebar
-import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -57,7 +56,7 @@ fun FullPlayerCoverArt(
     nextKey: Any? = null,
     // 在默认左右留白之外再内缩的距离，封面随之居中缩小
     coverExtraInset: Dp = 0.dp,
-    // 封面默认基础水平边距，默认 MelodiaSpacing.lg (24dp)，关闭小歌词时可自适应缩窄以放大封面
+    // 封面默认基础水平边距
     baseCoverPadding: Dp = MelodiaSpacing.lg,
     // 平板常驻面板用：侧栏与全屏互切，为 null 时不显示该按钮
     onToggleSidebarFullscreen: (() -> Unit)? = null,
@@ -105,7 +104,7 @@ fun FullPlayerCoverArt(
     }
 }
 
-// 播放来源标题栏：侧栏/全屏切换、收起、播放来源、全屏歌词、更多
+// 播放来源标题栏：侧栏/全屏切换、收起、播放来源、更多
 @Composable
 fun FullPlayerSourceBar(
     playContext: String?,
@@ -113,7 +112,6 @@ fun FullPlayerSourceBar(
     onMoreClick: () -> Unit,
     onToggleSidebarFullscreen: (() -> Unit)?,
     isSidebarFullscreen: Boolean,
-    onFullscreenLyricsClick: (() -> Unit)? = null,
     podcastRadioName: String = "",
     onPlaylistClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -126,21 +124,8 @@ fun FullPlayerSourceBar(
         FullPlayerCollapseButtons(onClose, onToggleSidebarFullscreen, isSidebarFullscreen)
         FullPlayerSourceLabel(playContext, podcastRadioName, onPlaylistClick, Modifier.weight(1f))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (onFullscreenLyricsClick != null) {
-                MelodiaIconButton(
-                    onClick = onFullscreenLyricsClick,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        Icons.Rounded.Fullscreen,
-                        contentDescription = "全屏歌词",
-                        tint = MelodiaColors.TextPrimary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(SidebarToggleGap))
-            } else if (onToggleSidebarFullscreen != null) {
-                // 左侧有切换按钮且右侧无全屏按钮时补等宽留白，播放来源标题保持居中
+            if (onToggleSidebarFullscreen != null) {
+                // 左侧有切换按钮时补等宽留白，播放来源标题保持居中
                 Spacer(modifier = Modifier.width(32.dp + SidebarToggleGap))
             }
             FullPlayerMoreButton(onMoreClick)

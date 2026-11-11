@@ -27,7 +27,6 @@ class PluginRepository(
     private val runtime: PluginRuntime,
     private val api: PluginHostApi,
     private val events: PluginEventDispatcher? = null,
-    private val native: NativePluginHost? = null,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     // 传入时启动后检查目录更新并提示
     private val notices: PluginNotices? = null,
@@ -35,19 +34,10 @@ class PluginRepository(
 ) {
     private val refreshLock = Mutex()
     private val publishLock = Mutex()
-    private var nativeSynced = false
     private val registry = runtime.registry
     private val _installed = MutableStateFlow<List<InstalledPlugin>>(emptyList())
     val installed: StateFlow<List<InstalledPlugin>> = _installed.asStateFlow()
-    val status: StateFlow<Map<String, PluginRuntimeStatus>> = native?.let { host ->
-        combine(runtime.status, host.status) { script, loaded -> script + loaded }
-            .stateIn(scope, SharingStarted.Eagerly, runtime.status.value + host.status.value)
-    } ?: runtime.status
-
-    // Android 没有原生层
-    val nativeSupported: Boolean = native != null
-    private val _nativeAllowed = MutableStateFlow(false)
-    val nativeAllowed: StateFlow<Boolean> = _nativeAllowed.asStateFlow()
+    val status: StateFlow<Map<String, PluginRuntimeStatus>> = runtime.status
 
     private val _layouts = MutableStateFlow(PlayerLayoutState())
     // 各区域生效的插件布局、候选插件与用户的选择
@@ -57,18 +47,12 @@ class PluginRepository(
     // 已启用插件提供的页面
     val pages: StateFlow<List<ActivePluginPage>> = _pages.asStateFlow()
 
-    private val _backdrops = MutableStateFlow(BackdropState())
-    // 已启用插件提供的动态背景；目前只有桌面端接入
-    val backdrops: StateFlow<BackdropState> = _backdrops.asStateFlow()
-
     init {
         runtime.setFailureHandler(::disableForErrors)
-        native?.setFailureHandler(::disableForErrors)
     }
 
     // 启动时调用一次，拉起已启用插件并开始分发播放事件
     suspend fun warmUp() {
-        _nativeAllowed.value = withContext(Dispatchers.IO) { store.nativeAllowed() }
         refresh()
         events?.start()
         if (notices != null) scope.launch { announceUpdates(notices) }
@@ -82,15 +66,6 @@ class PluginRepository(
     suspend fun refresh() = refreshLock.withLock {
         val plugins = publishLatest()
         runtime.sync(plugins)
-        // 启动时没有原生插件也要同步一次，之后导入的才会按约定等重启
-        if (native != null && (!nativeSynced || plugins.any { it.manifest?.kind == PluginKind.NATIVE })) {
-            val allowed = withContext(Dispatchers.IO) { store.nativeAllowed() }
-            _nativeAllowed.value = allowed
-            native.sync(plugins, allowed)
-            nativeSynced = true
-            // 页面和菜单要等原生插件加载后才生效
-            publishLatest()
-        }
     }
 
     // 同步途中可能有插件被自动停用，每次都读最新状态；refresh 持锁期间也会走到这里，所以用单独的锁
@@ -98,9 +73,7 @@ class PluginRepository(
         withContext(Dispatchers.IO) { store.list() }.also { publish(it) }
     }
 
-    // 沙盒插件随状态生效；原生插件只有本次启动加载成功的才算
-    private fun isActive(plugin: InstalledPlugin): Boolean =
-        if (plugin.manifest?.kind == PluginKind.NATIVE) native?.isActive(plugin.id) == true else plugin.state.enabled && plugin.canRun
+    private fun isActive(plugin: InstalledPlugin): Boolean = plugin.state.enabled && plugin.canRun
 
     private suspend fun publish(plugins: List<InstalledPlugin>) {
         _installed.value = plugins
@@ -110,36 +83,7 @@ class PluginRepository(
             registry.replace(ExtensionPoints.MENU, menuExtensions(plugins))
             _layouts.value = resolveLayouts()
             _pages.value = registry.get(ExtensionPoints.PAGE).map { it.value }
-            _backdrops.value = resolveBackdrops(plugins)
         }
-    }
-
-    // 图片序列随状态生效；逐帧渲染要等原生插件注册后才可用
-    private fun resolveBackdrops(plugins: List<InstalledPlugin>): BackdropState {
-        val renderers = registry.get(ExtensionPoints.BACKDROP)
-        val candidates = plugins.filter(::isActive).flatMap { plugin ->
-            val manifest = plugin.manifest ?: return@flatMap emptyList()
-            manifest.contributes.backdrops.mapNotNull { entry ->
-                val renderer = renderers.firstOrNull { it.pluginId == manifest.id && it.localId == entry.id }?.value
-                val frames = entry.frames.mapNotNull(manifest::file)
-                if (renderer == null && frames.isEmpty()) return@mapNotNull null
-                ActiveBackdrop("${manifest.id}/${entry.id}", manifest.name, entry, renderer, frames) to plugin.state.enabledAt
-            }
-        }
-        val choice = store.layoutChoices()[BACKDROP_CHOICE_KEY]
-        val automatic = { candidates.maxByOrNull { it.second }?.first }
-        val active = when (choice) {
-            LAYOUT_CHOICE_DEFAULT -> null
-            null -> automatic()
-            else -> candidates.firstOrNull { it.first.key == choice }?.first ?: automatic()
-        }
-        return BackdropState(active, candidates.map { it.first }, choice)
-    }
-
-    // choice 为背景 key、LAYOUT_CHOICE_DEFAULT（不使用），或 null 表示按最近启用的插件
-    suspend fun chooseBackdrop(choice: String?) {
-        withContext(Dispatchers.IO) { store.setLayoutChoice(BACKDROP_CHOICE_KEY, choice) }
-        refresh()
     }
 
     private fun menuExtensions(plugins: List<InstalledPlugin>): List<Extension<PluginMenuEntry>> =
@@ -154,13 +98,9 @@ class PluginRepository(
         plugins.filter(::isActive).flatMap { plugin ->
             val manifest = plugin.manifest ?: return@flatMap emptyList()
             manifest.contributes.pages.mapIndexed { index, page ->
-                val active = if (page.compose) {
-                    ActivePluginPage(manifest, page, null, null)
-                } else {
-                    when (val result = PlayerLayoutParser.loadPage(manifest, page)) {
-                        is PlayerLayoutParseResult.Success -> ActivePluginPage(manifest, page, result.root, null)
-                        is PlayerLayoutParseResult.Failure -> ActivePluginPage(manifest, page, null, result.reason)
-                    }
+                val active = when (val result = PlayerLayoutParser.loadPage(manifest, page)) {
+                    is PlayerLayoutParseResult.Success -> ActivePluginPage(manifest, page, result.root, null)
+                    is PlayerLayoutParseResult.Failure -> ActivePluginPage(manifest, page, null, result.reason)
                 }
                 Extension(ExtensionPoints.PAGE, manifest.id, manifest.name, page.id, active, index)
             }
@@ -181,9 +121,6 @@ class PluginRepository(
                     }
                 }
         }
-
-    fun composePage(pluginId: String, pageId: String): ComposePageExtension? =
-        registry.get(ExtensionPoints.COMPOSE_PAGE).firstOrNull { it.pluginId == pluginId && it.localId == pageId }?.value
 
     // choice 为插件 id、LAYOUT_CHOICE_DEFAULT，或 null 表示按最近启用的插件
     suspend fun chooseLayout(area: PlayerLayoutArea, choice: String?) {
@@ -210,21 +147,7 @@ class PluginRepository(
 
     // 调用方负责打开输入流，这里读完即关闭
     suspend fun stage(input: InputStream, sourceName: String? = null): PluginStageResult = withContext(Dispatchers.IO) {
-        val result = input.use { store.stage(it, sourceName) }
-        val staged = (result as? PluginStageResult.Success)?.staged
-        if (staged?.manifest?.kind == PluginKind.NATIVE && !store.nativeAllowed()) {
-            store.discard(staged)
-            PluginStageResult.Failure("这是原生插件，请先开启「允许原生插件」")
-        } else {
-            result
-        }
-    }
-
-    // 关闭后立即卸载已加载的原生插件；开启后要重启才加载
-    suspend fun setNativeAllowed(allowed: Boolean) {
-        withContext(Dispatchers.IO) { store.setNativeAllowed(allowed) }
-        _nativeAllowed.value = allowed
-        refresh()
+        input.use { store.stage(it, sourceName) }
     }
 
     suspend fun discard(staged: StagedPlugin) = withContext(Dispatchers.IO) { store.discard(staged) }
@@ -234,7 +157,6 @@ class PluginRepository(
     // 安装即视为用户确认了清单里的全部权限，并直接启用
     suspend fun install(staged: StagedPlugin): InstalledPlugin? {
         runtime.stop(staged.manifest.id)
-        native?.unload(staged.manifest.id)
         val plugin = withContext(Dispatchers.IO) {
             // 用户手动停用的插件升级后保持停用；因出错被自动停用的，新版本可以再试
             val state = store.installed(staged.manifest.id)?.state
@@ -247,7 +169,6 @@ class PluginRepository(
     // 没有可回退的版本或替换失败时返回 null
     suspend fun rollback(id: String): InstalledPlugin? {
         runtime.stop(id)
-        native?.unload(id)
         val plugin = withContext(Dispatchers.IO) { store.rollback(id) }
         refresh()
         return plugin
@@ -267,7 +188,6 @@ class PluginRepository(
 
     suspend fun delete(id: String) {
         runtime.stop(id)
-        native?.unload(id)
         api.clearUiState(id)
         runtime.clearData(id)
         withContext(Dispatchers.IO) { store.delete(id) }
@@ -289,23 +209,6 @@ class PluginRepository(
         publishLatest()
     }
 }
-
-private const val BACKDROP_CHOICE_KEY = "backdrop"
-
-// renderer 与 frames 至少有一个；同时有时优先逐帧渲染
-data class ActiveBackdrop(
-    val key: String,
-    val pluginName: String,
-    val entry: PluginBackdropEntry,
-    val renderer: BackdropExtension?,
-    val frames: List<File>
-)
-
-data class BackdropState(
-    val active: ActiveBackdrop? = null,
-    val candidates: List<ActiveBackdrop> = emptyList(),
-    val choice: String? = null
-)
 
 // root 为 null 时页面描述无效，error 为原因
 data class ActivePluginPage(

@@ -1,7 +1,5 @@
 package com.lin0721.linmusic.feature.player.ui
 
-import com.lin0721.linmusic.core.player.LyricsResolver
-import com.lin0721.linmusic.core.player.LyricsSource
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.preferences.FullPlayerCardLayout
@@ -15,8 +13,6 @@ import com.lin0721.linmusic.core.model.ArtistAlbum
 import com.lin0721.linmusic.core.model.ArtistDetailInfo
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.model.ArtistInfo
-import com.lin0721.linmusic.core.player.domain.LyricLine
-import com.lin0721.linmusic.core.player.domain.LyricProgressTracker
 import com.lin0721.linmusic.feature.artist.data.ArtistRepository
 import com.lin0721.linmusic.core.comment.data.CommentRepository
 import com.lin0721.linmusic.core.comment.data.qqSongThreadId
@@ -72,12 +68,9 @@ data class ArtistCardItem(
     val isLoading: Boolean = false
 )
 
-// 当前播放歌曲的详情聚合状态：歌词/歌曲详情/歌手资料等异步分别到达，各自保留独立的 loading/nullable 语义
+// 当前播放歌曲的详情聚合状态：歌曲详情/歌手资料等异步分别到达，各自保留独立的 loading/nullable 语义
 data class PlayerSongDetailState(
     val songDetail: Track? = null,
-    val lyrics: List<LyricLine> = emptyList(),
-    val lyricsSource: LyricsSource? = null,
-    val isLyricsLoading: Boolean = false,
     val songWiki: SongWikiData? = null,
     val isSongWikiLoading: Boolean = false,
     val chorusStartMs: Long? = null,
@@ -120,7 +113,6 @@ class PlayerViewModel(
     private val settingsPreferences: SettingsPreferences,
     private val resourceProvider: ResourceProvider,
     private val songDownloadManager: SongDownloader,
-    private val lyricsResolver: LyricsResolver,
     private val podcastPlayer: PodcastPlayerController,
     private val qqSongIdResolver: QQSongIdResolver
 ) : ViewModel() {
@@ -181,19 +173,6 @@ class PlayerViewModel(
         initialValue = FullPlayerCardLayout.DEFAULT
     )
 
-    // 播放页小歌词显隐
-    val showMiniLyric: StateFlow<Boolean> = settingsPreferences.showMiniLyric.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = true
-    )
-
-    fun toggleMiniLyric(show: Boolean) {
-        viewModelScope.launch {
-            settingsPreferences.saveShowMiniLyric(show)
-        }
-    }
-
     // 播放页实际音质显隐
     val showPlaybackQuality: StateFlow<Boolean> = settingsPreferences.showPlaybackQuality.stateIn(
         scope = viewModelScope,
@@ -212,19 +191,6 @@ class PlayerViewModel(
             playerManager.reloadCurrentTrack()
         }
     }
-
-    private val _primaryLyricIndex = MutableStateFlow(-1)
-    val primaryLyricIndex: StateFlow<Int> = _primaryLyricIndex.asStateFlow()
-    val currentLyricIndex: StateFlow<Int> = primaryLyricIndex
-
-    // 需要同时高亮的行集合。对唱与背景和声的时间区间会重叠，单个 index 表达不了，
-    // 供全屏歌词与播放页歌词卡按 index in activeLyricIndices 判定。
-    private val _activeLyricIndices = MutableStateFlow<Set<Int>>(emptySet())
-    val activeLyricIndices: StateFlow<Set<Int>> = _activeLyricIndices.asStateFlow()
-
-    // 有状态的歌词播放进度。advance() 的 displayIndices 需要「旧行在新行加入前继续保持显示」，
-    // 这个判断依赖上一次的状态，所以必须跨进度回调持有；无状态的 activeIndices 表达不了。
-    private val lyricProgress = LyricProgressTracker()
 
     private val _songDetailState = MutableStateFlow(PlayerSongDetailState())
     val songDetailState: StateFlow<PlayerSongDetailState> = _songDetailState.asStateFlow()
@@ -261,7 +227,6 @@ class PlayerViewModel(
         loadLikedSongIds()
         observeLikedState()
         observeTrackChanges()
-        observePosition()
     }
 
     private fun observeLikedState() {
@@ -348,8 +313,7 @@ class PlayerViewModel(
                         // 全部挂在同一棵子协程树下并发拉取：下一首切歌到达时 collectLatest
                         // 会把这整棵树一起取消，不需要每个加载函数各自手写 songId 比对防止过期数据写回
                         coroutineScope {
-                            launch { loadLyrics(songId) }
-                            // 负数占位 id 请求网易接口必然失败，歌词由 LyricsResolver 另行处理
+                            // 负数占位 id 请求网易接口必然失败，在线详情只对正规曲目拉取
                             if (!isLocalOnly) {
                                 launch { loadSongDetail(songId) }
                                 launch { loadSongWiki(songId) }
@@ -367,62 +331,6 @@ class PlayerViewModel(
 
     private fun clearState(isLiked: Boolean = false, isLocalOnly: Boolean = false, isExternal: Boolean = false) {
         _songDetailState.value = PlayerSongDetailState(isLiked = isLiked, isLocalOnly = isLocalOnly, isExternal = isExternal)
-        resetLyricPlayback()
-    }
-
-    // 作废累积的歌词播放状态。换歌、换歌词、清空状态时都要调用，
-    // 否则上一套歌词的暂留行会挂在新歌词上
-    private fun resetLyricPlayback() {
-        lyricProgress.reset()
-        _primaryLyricIndex.value = -1
-        _activeLyricIndices.value = emptySet()
-    }
-
-    private fun updateLyricPlayback(positionMs: Long, isSeek: Boolean = false) {
-        val lines = _songDetailState.value.lyrics
-        if (lines.isEmpty()) return
-        val state = lyricProgress.update(lines, positionMs, isSeek)
-        _activeLyricIndices.value = state.displayIndices
-        // 与原版一致：锚点跟随过渡显示状态，重叠旧行暂留时不跳到后面的行；
-        // 手动跳转由 advance(isSeek = true) 立即重置高亮集合与锚点。
-        _primaryLyricIndex.value = state.primaryIndex
-    }
-
-    private fun observePosition() {
-        viewModelScope.launch {
-            playerManager.currentPosition.collectLatest { positionMs ->
-                updateLyricPlayback(positionMs)
-            }
-        }
-    }
-
-    private suspend fun loadLyrics(songId: Long) {
-        combine(
-            settingsPreferences.amllLyricsEnabled,
-            settingsPreferences.qqLyricsEnabled,
-            settingsPreferences.neteaseLyricsEnabled
-        ) { amll, qq, netease ->
-            Triple(amll, qq, netease)
-        }.distinctUntilChanged().collectLatest {
-            reloadLyrics(songId)
-        }
-    }
-
-    private suspend fun reloadLyrics(songId: Long) {
-        _songDetailState.update { it.copy(isLyricsLoading = true) }
-        lyricsResolver.lyricsWithSourceFor(songId).collect { result ->
-            result.onSuccess { resolved ->
-                _songDetailState.update { it.copy(lyrics = resolved.lines, lyricsSource = resolved.source, isLyricsLoading = false) }
-                // 换了一套歌词，上一套累积的暂留行必须作废；并按当前位置立即对齐一次，
-                // 不等下一次进度回调，否则进入播放页时会短暂停留在上一首的残留行
-                resetLyricPlayback()
-                updateLyricPlayback(playerManager.currentPosition.value, isSeek = true)
-            }.onFailure {
-                _songDetailState.update { it.copy(lyrics = emptyList(), lyricsSource = null, isLyricsLoading = false) }
-                resetLyricPlayback()
-            }
-        }
-        _songDetailState.update { it.copy(isLyricsLoading = false) }
     }
 
     // 已加载的详情直接用，否则现取一次；失败返回 null
@@ -622,9 +530,6 @@ class PlayerViewModel(
 
     fun seekToTime(timeMs: Long) {
         playerManager.seekTo(timeMs)
-        // 立刻按目标位置对齐，不等下一次进度回调。isSeek 会跳过旧行暂留，
-        // 否则拖动进度条或点歌词行之后，原位置那一串行还会继续亮着
-        updateLyricPlayback(timeMs, isSeek = true)
     }
 
     val sleepTimerRemaining: StateFlow<Long> = playerManager.sleepTimerRemaining

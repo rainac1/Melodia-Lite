@@ -39,7 +39,6 @@ private const val CATALOG_FORMAT = 1
 private const val MAX_CATALOG_ENTRIES = 1000
 private const val MAX_CATALOG_BYTES = 4L * 1024 * 1024
 private const val MAX_SANDBOX_DOWNLOAD_BYTES = 10L * 1024 * 1024
-private const val MAX_NATIVE_DOWNLOAD_BYTES = 200L * 1024 * 1024
 private const val MAX_NAME_LENGTH = 40
 private const val MAX_VERSION_LENGTH = 20
 private const val MAX_URL_LENGTH = 2000
@@ -62,12 +61,10 @@ data class PluginCatalogEntry(
     val apiVersion: String? = null,
     val minAppVersion: String? = null,
     val permissions: List<String> = emptyList(),
-    // 源码地址，原生插件必填
+    // 源码地址
     val source: String? = null,
     val download: PluginCatalogDownload
-) {
-    val isNative: Boolean get() = kind == PluginKind.NATIVE.key
-}
+)
 
 data class PluginCatalog(
     val entries: List<PluginCatalogEntry>,
@@ -96,8 +93,6 @@ object PluginCatalogParser {
             when {
                 entry == null -> skipped++
                 entry.id in entries -> skipped++
-                // Android 不支持原生插件，不显示
-                entry.isNative && platform == PluginPlatform.ANDROID -> Unit
                 else -> entries[entry.id] = entry
             }
         }
@@ -120,15 +115,13 @@ object PluginCatalogParser {
             return null
         }
         val download = entry.download
-        val maxBytes = if (entry.isNative) MAX_NATIVE_DOWNLOAD_BYTES else MAX_SANDBOX_DOWNLOAD_BYTES
         val valid = PLUGIN_ID_PATTERN.matches(entry.id) &&
             entry.name.isNotBlank() && entry.name.length <= MAX_NAME_LENGTH &&
             entry.version.isNotBlank() && entry.version.length <= MAX_VERSION_LENGTH &&
-            (entry.kind == PluginKind.SANDBOX.key || entry.kind == PluginKind.NATIVE.key) &&
+            entry.kind == PluginKind.SANDBOX.key &&
             isHttps(download.url) &&
             SHA256_PATTERN.matches(download.sha256) &&
-            download.size in 1..maxBytes &&
-            (!entry.isNative || entry.source?.let(::isHttps) == true)
+            download.size in 1..MAX_SANDBOX_DOWNLOAD_BYTES
         return entry.takeIf { valid }
     }
 }
@@ -194,14 +187,6 @@ fun pluginCatalogMismatch(entry: PluginCatalogEntry, manifest: PluginManifest): 
     else -> null
 }
 
-// 目录哈希来自目录本身，自定义目录下无法证明内容经过审核
-fun pluginCatalogWarning(preview: PluginImportStep.Preview): String? =
-    if (preview.unreviewed && preview.staged.manifest.kind == PluginKind.NATIVE) {
-        "这个原生插件来自自定义目录，没有经过官方目录审核，无法确认内容未被改动。只在完全信任目录来源时安装"
-    } else {
-        null
-    }
-
 // 按名称、作者、说明和 id 搜索，忽略大小写
 fun filterCatalog(entries: List<PluginCatalogEntry>, query: String): List<PluginCatalogEntry> {
     val keyword = query.trim()
@@ -213,7 +198,6 @@ fun filterCatalog(entries: List<PluginCatalogEntry>, query: String): List<Plugin
 
 // 目录列表里的类型、作者与权限数
 fun catalogEntryMeta(entry: PluginCatalogEntry): String = listOfNotNull(
-    "原生".takeIf { entry.isNative },
     entry.author,
     "${entry.permissions.size} 项权限".takeIf { entry.permissions.isNotEmpty() }
 ).joinToString(" · ")

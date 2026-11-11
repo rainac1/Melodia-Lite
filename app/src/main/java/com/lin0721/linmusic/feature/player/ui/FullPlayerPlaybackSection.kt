@@ -17,20 +17,17 @@ import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.podcast.ui.PodcastPlayerState
 import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
-import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
 
 // 播放器主区之间的留白项个数，与下方 fillGapItem 调用次数保持一致
 const val FullPlayerFillGapCount = 4
 
 // 撑满一屏时参与高度计算的主区项，需与下方 item key 保持一致
-val FullPlayerPlaybackItemKeys = listOf("cover", "song_info", "mini_lyric", "progress", "controls", "actions")
-val FullPlayerPlaybackItemKeysWithoutMiniLyric = listOf("cover", "song_info", "progress", "controls", "actions")
+val FullPlayerPlaybackItemKeys = listOf("cover", "song_info", "progress", "controls", "actions")
 
-// 播放器主区：封面、歌名歌手、单行歌词、进度条、播放控制、快捷操作
+// 播放器主区：封面、歌名歌手、进度条、播放控制、快捷操作
 // fillGap 非空时在各区块间插入等高留白，并在末尾补 fillTail 高度，使主区恰好铺满首屏、后续项留在屏外
 fun LazyListScope.fullPlayerPlaybackSection(
     songState: PlayerSongDetailState,
-    colors: PlayerBackdropPalette,
     coverUrl: String,
     previousCoverUrl: String?,
     nextCoverUrl: String?,
@@ -48,9 +45,7 @@ fun LazyListScope.fullPlayerPlaybackSection(
     playContext: String?,
     podcast: PodcastPlayerState = PodcastPlayerState(),
     onToggleSubscribe: () -> Unit = {},
-    currentLyricIndex: Int,
-    isPlaying: Boolean,
-    // 大播放按钮专用：弱网缓冲期间也要立刻显示"暂停中"，不受歌词区仍用的严格 isPlaying 影响
+    // 大播放按钮专用：弱网缓冲期间也要立刻显示"暂停中"，不等音频真正流出
     playWhenReady: Boolean,
     currentPositionProvider: () -> Long,
     duration: Long,
@@ -61,7 +56,6 @@ fun LazyListScope.fullPlayerPlaybackSection(
     onArtistClick: () -> Unit,
     onAlbumClick: (() -> Unit)? = null,
     onPlaylistClick: (() -> Unit)? = null,
-    onMiniLyricClick: (() -> Unit)? = null,
     onSeek: (Long) -> Unit,
     onTogglePlay: () -> Unit,
     onPlayNext: () -> Unit,
@@ -72,10 +66,8 @@ fun LazyListScope.fullPlayerPlaybackSection(
     onDisableIntelligence: () -> Unit,
     onOutputDeviceClick: () -> Unit,
     onQueueClick: () -> Unit,
-    onShareClick: () -> Unit,
     connectedDevice: AudioDeviceInfo? = null,
     qualityLabel: String? = null,
-    showMiniLyric: Boolean = true,
     baseCoverPadding: Dp = MelodiaSpacing.lg,
     itemGap: Dp = 0.dp,
     fillGap: Dp? = null,
@@ -128,30 +120,6 @@ fun LazyListScope.fullPlayerPlaybackSection(
         )
     }
 
-    item(key = "mini_lyric") {
-        AnimatedVisibility(
-            visible = showMiniLyric,
-            enter = expandVertically(
-                animationSpec = uiTween(300, easing = FastOutSlowInEasing)
-            ) + fadeIn(
-                animationSpec = uiTween(200)
-            ),
-            exit = shrinkVertically(
-                animationSpec = uiTween(300, easing = FastOutSlowInEasing)
-            ) + fadeOut(
-                animationSpec = uiTween(200)
-            )
-        ) {
-            MiniLyricLine(
-                lyrics = songState.lyrics,
-                currentLyricIndex = currentLyricIndex,
-                isPlaying = isPlaying,
-                onClick = onMiniLyricClick
-            )
-        }
-    }
-
-    fillGapItem(2)
 
     item(key = "progress") {
         // 播放器尚未拿到时长时退回歌曲详情里的时长
@@ -189,7 +157,6 @@ fun LazyListScope.fullPlayerPlaybackSection(
         ActionButtons(
             onOutputDeviceClick = onOutputDeviceClick,
             onQueueClick = onQueueClick,
-            onShareClick = onShareClick,
             connectedDevice = connectedDevice,
             qualityLabel = qualityLabel
         )

@@ -120,24 +120,6 @@ class PlayerManager(
     )
 
     override val currentPosition: StateFlow<Long> = progress.currentPosition
-    private var playbackPositionSource: (() -> PlaybackPositionSample?)? = null
-    private val lyricRenderClock = LyricRenderClock()
-
-    internal fun setPlaybackPositionSource(source: (() -> PlaybackPositionSample?)?) {
-        playbackPositionSource = source
-    }
-
-    // 直接读时钟仍可能得到离散采样值；用共享绘制时钟逐帧推进，并渐进校正。
-    fun currentPositionNow(): Long {
-        val sample = playbackPositionSource?.invoke()
-        val raw = sample?.positionMs
-            ?: controllerHolder.currentPositionOrNull
-            ?: progress.currentPosition.value
-        return lyricRenderClock.sample(
-            raw, SystemClock.elapsedRealtime(), _isPlaying.value,
-            mediaId = sample?.mediaId ?: _currentTrack.value?.mediaId
-        )
-    }
 
     override val duration: StateFlow<Long> = progress.duration
     val positionUpdateInterval: StateFlow<Long> = progress.updateInterval
@@ -531,7 +513,6 @@ class PlayerManager(
     }
 
     override fun seekTo(positionMs: Long) {
-        lyricRenderClock.reset(positionMs, SystemClock.elapsedRealtime(), _isPlaying.value, awaitSeek = true)
         controllerHolder.seekTo(positionMs)
         progress.setPosition(positionMs)
         val songId = _currentTrack.value?.mediaId?.toLongOrNull() ?: -1L
@@ -1223,15 +1204,8 @@ class PlayerManager(
         _playWhenReady.value = playWhenReady
     }
 
-    // 状态切换前后各采样一次：切换前结算旧状态进度，切换后确立新状态时钟基准
-    private fun updatePlaybackStateAndSyncClock(isPlaying: Boolean) {
-        currentPositionNow()
-        _isPlaying.value = isPlaying
-        currentPositionNow()
-    }
-
     override fun onIsPlayingChanged(isPlaying: Boolean) {
-        updatePlaybackStateAndSyncClock(isPlaying)
+        _isPlaying.value = isPlaying
         if (isPlaying) {
             consecutiveErrors = 0
             streamErrorRecoverySongId = null
@@ -1243,20 +1217,7 @@ class PlayerManager(
         }
     }
 
-    override fun onPositionDiscontinuity(
-        oldPosition: Player.PositionInfo,
-        newPosition: Player.PositionInfo,
-        reason: Int
-    ) {
-        if (reason == Player.DISCONTINUITY_REASON_SEEK ||
-            reason == Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT ||
-            reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) {
-            lyricRenderClock.reset(newPosition.positionMs, SystemClock.elapsedRealtime(), _isPlaying.value)
-        }
-    }
-
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-        lyricRenderClock.reset(controllerHolder.currentPosition, SystemClock.elapsedRealtime(), _isPlaying.value)
         AppLogger.i(TAG, "切歌: songId=${mediaItem?.mediaId} reason=${transitionReasonName(reason)}")
         reportPlayedTrack()
         resetTrackTiming()

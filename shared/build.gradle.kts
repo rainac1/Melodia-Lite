@@ -15,13 +15,6 @@ kotlin {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
         }
     }
-    // 与 desktopApp 一致；未指定时会跟随编译用 JDK，产出安装包内置运行时无法加载的高版本字节码
-    jvm("desktop") {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        }
-    }
-
     sourceSets {
         commonMain.dependencies {
             api(libs.okhttp)
@@ -39,18 +32,10 @@ kotlin {
             implementation(libs.xz)
             // Android 自带 org.json，只在编译期引用
             compileOnly(libs.org.json)
-            // 分享卡片排版两端共用
+            // 分享卡片排版
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.ui)
-        }
-        getByName("desktopMain").dependencies {
-            implementation(libs.org.json)
-        }
-        getByName("desktopTest").dependencies {
-            implementation(libs.junit)
-            implementation(libs.kotlinx.coroutines.test)
-            implementation(libs.okhttp.mockwebserver)
         }
     }
 }

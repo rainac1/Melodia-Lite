@@ -1,6 +1,6 @@
 package com.lin0721.linmusic.core.source
 
-// LX 插件脚本运行时，Android 用 WebView 实现，桌面端用 GraalJS 实现
+// LX 插件脚本运行时，Android 用 WebView 实现
 interface LxPluginRuntime {
 
     // 从远程 URL 下载脚本内容

@@ -21,10 +21,10 @@ private val CoverMinEdge = 160.dp
 // 沿用上次校正结果起步，避免手机播放页每次打开时封面再缩一下
 private var lastSettledInsetPx = 0f
 
-// 布局停止变化这么久才校正一次：单行歌词切换、条目入场都带尺寸动画，动画中途的偏移不可信
+// 布局停止变化这么久才校正一次：条目入场带尺寸动画，动画中途的偏移不可信
 private const val SETTLE_DELAY_MS = 250L
 
-// 收缩时在操作行下方额外留出的余量，吸收单行歌词等条目的高度起伏
+// 收缩时在操作行下方额外留出的余量，吸收条目入场等高度起伏
 private val FitReserve = 12.dp
 
 // 余量超过 FitReserve + FitHysteresis 才放大回去，两个方向之间留回差，避免在临界点来回伸缩
