@@ -8,8 +8,10 @@ plugins {
     alias(libs.plugins.baselineprofile)
 }
 
-// 签名材料一律来自仓库外：本地读 local.properties，CI 读同名环境变量。
-// 四项缺任意一项即视为未配置，release 退回调试签名，便于本地随时打包验证。
+// 默认签名直接用仓库根目录内置的 melodia-release.jks（别名与密码均为 android）
+// —— CI 与本地开箱即用，无需任何额外配置。
+// 想换签名时用 local.properties（本地）或同名环境变量（CI）覆盖；
+// 自定义 keystore 必须四项给全，否则视为未配置，release 退回调试签名。
 val keystoreProps = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
@@ -19,9 +21,12 @@ fun signingValue(key: String, env: String): String? =
     (keystoreProps.getProperty(key) ?: System.getenv(env))?.takeIf { it.isNotBlank() }
 
 val releaseStoreFile = signingValue("RELEASE_STORE_FILE", "RELEASE_STORE_FILE")
-val releaseStorePassword = signingValue("RELEASE_STORE_PASSWORD", "RELEASE_STORE_PASSWORD")
-val releaseKeyAlias = signingValue("RELEASE_KEY_ALIAS", "RELEASE_KEY_ALIAS")
-val releaseKeyPassword = signingValue("RELEASE_KEY_PASSWORD", "RELEASE_KEY_PASSWORD")
+        ?: "melodia-release.jks".takeIf { rootProject.file(it).exists() }
+// 只有内置 keystore 才套用固定别名/密码，自定义 keystore 必须显式配置四项
+val bundledDefault: String? = "android".takeIf { releaseStoreFile == "melodia-release.jks" }
+val releaseStorePassword = signingValue("RELEASE_STORE_PASSWORD", "RELEASE_STORE_PASSWORD") ?: bundledDefault
+val releaseKeyAlias = signingValue("RELEASE_KEY_ALIAS", "RELEASE_KEY_ALIAS") ?: bundledDefault
+val releaseKeyPassword = signingValue("RELEASE_KEY_PASSWORD", "RELEASE_KEY_PASSWORD") ?: bundledDefault
 
 val hasReleaseSigning = releaseStoreFile != null &&
         releaseStorePassword != null &&

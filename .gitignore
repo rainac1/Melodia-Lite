@@ -23,9 +23,10 @@ app/build/
 # 本地环境属性（含 SDK 路径与 release 签名材料，见 RELEASE_SIGNING.md）
 local.properties
 
-# 签名密钥文件
+# 签名密钥文件（内置的 melodia-release.jks 除外，见 RELEASE_SIGNING.md）
 *.keystore
 *.jks
+!melodia-release.jks
 *.pepk
 *.b64
 
