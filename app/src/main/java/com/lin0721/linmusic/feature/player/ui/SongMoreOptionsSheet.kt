@@ -44,6 +44,7 @@ import com.lin0721.linmusic.core.plugin.LocalPluginCommands
 import com.lin0721.linmusic.core.plugin.PluginMenuLocation
 import com.lin0721.linmusic.core.plugin.pluginSongArgs
 import com.lin0721.linmusic.core.plugin.rememberPluginCommands
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.formatSleepTimerRemaining
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
@@ -60,8 +61,10 @@ fun SongMoreOptionsSheet(
     currentQuality: String,
     // 本地歌曲未匹配到云端：没有网易 songId，依赖云端数据的操作全部隐藏
     isLocalOnly: Boolean,
-    // 播客节目：专辑、歌手、收藏到歌单、心动模式、相似歌曲、下载、音质都不适用，整项隐藏
+    // 播客节目：专辑、歌手、收藏到歌单、心动模式、相似歌曲、下载、音质、小歌词都不适用，整项隐藏
     isPodcast: Boolean = false,
+    showMiniLyric: Boolean = true,
+    onToggleMiniLyric: ((Boolean) -> Unit)? = null,
     onToggleLike: () -> Unit,
     onAlbumClick: () -> Unit,
     onArtistClick: () -> Unit,
@@ -72,9 +75,15 @@ fun SongMoreOptionsSheet(
     onStartSimilarRoaming: () -> Unit,
     onInsertSimilarSongs: () -> Unit,
     onCollectClick: () -> Unit,
+    onShareClick: (() -> Unit)? = null,
     onDownloadClick: () -> Unit,
     onDismiss: () -> Unit,
-    songId: Long? = null
+    onListenTogetherClick: () -> Unit = {},
+    songId: Long? = null,
+    isPersonalFm: Boolean = false,
+    personalFmMode: PersonalFmMode = PersonalFmMode.DEFAULT,
+    onPersonalFmModeClick: () -> Unit = {},
+    onDisablePersonalFm: () -> Unit = {}
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -221,6 +230,31 @@ fun SongMoreOptionsSheet(
                 )
             }
 
+            if (isPersonalFm) {
+                OptionRow(
+                    icon = Icons.Rounded.Radio,
+                    text = "切换FM模式 (${personalFmMode.displayName})",
+                    onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                            onPersonalFmModeClick()
+                        }
+                    }
+                )
+                OptionRow(
+                    icon = Icons.Rounded.Close,
+                    text = "退出私人FM",
+                    onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                            onDisablePersonalFm()
+                        }
+                    }
+                )
+            }
+
             if (!isLocalOnly) {
                 if (!isPodcast) {
                     // 5. 开始相似歌曲漫游
@@ -250,6 +284,36 @@ fun SongMoreOptionsSheet(
                     )
 
 
+                }
+
+                // 仅网易云歌曲：外部平台歌曲为负 id，本地未匹配歌曲已由外层 isLocalOnly 排除
+                if (!isPodcast && (songId ?: 0L) > 0L) {
+                    OptionRow(
+                        icon = Icons.Rounded.Group,
+                        text = "一起听",
+                        onClick = {
+                            scope.launch {
+                                sheetState.hide()
+                                onDismiss()
+                                onListenTogetherClick()
+                            }
+                        }
+                    )
+                }
+
+                // 6. 分享
+                if (onShareClick != null) {
+                    OptionRow(
+                        icon = Icons.Rounded.Share,
+                        text = "分享",
+                        onClick = {
+                            scope.launch {
+                                sheetState.hide()
+                                onDismiss()
+                                onShareClick()
+                            }
+                        }
+                    )
                 }
 
                 if (!isPodcast) {
@@ -412,7 +476,34 @@ fun SongMoreOptionsSheet(
                     }
                 )
 
-
+                // 10. 播放页小歌词开关（本分支无歌词运行时）
+                if (!isPodcast && onToggleMiniLyric != null) Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onToggleMiniLyric(!showMiniLyric) }
+                        .padding(horizontal = 20.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Subtitles,
+                        contentDescription = null,
+                        tint = MelodiaColors.TextPrimary.copy(alpha = 0.7f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = "播放页小歌词",
+                        color = MelodiaColors.TextPrimary,
+                        fontSize = 15.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    MelodiaSwitch(
+                        checked = showMiniLyric,
+                        onCheckedChange = onToggleMiniLyric
+                    )
+                }
         }
     }
 }

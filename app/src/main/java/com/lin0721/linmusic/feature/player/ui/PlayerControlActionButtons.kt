@@ -8,6 +8,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Comment
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Subtitles
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SpeakerGroup
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +27,10 @@ import com.lin0721.linmusic.core.ui.theme.MelodiaPress
 import com.lin0721.linmusic.core.ui.theme.InfoCardRadius
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontWeight
 
 // 插件布局用的操作行：按给定按钮与顺序排布
@@ -33,13 +39,16 @@ fun PlayerActionRow(
     buttons: List<String>,
     onOutputDeviceClick: () -> Unit,
     onQueueClick: () -> Unit,
+    onShareClick: (() -> Unit)? = null,
     onMoreClick: () -> Unit,
     connectedDevice: AudioDeviceInfo?,
     qualityLabel: String?,
     modifier: Modifier = Modifier,
     onSleepTimerClick: () -> Unit = {},
     sleepTimerActive: Boolean = false,
-    onCommentsClick: () -> Unit = {}
+    onCommentsClick: () -> Unit = {},
+    onLyricsClick: () -> Unit = {},
+    onLyricsSettingsClick: () -> Unit = {}
 ) {
     Row(
         modifier = modifier,
@@ -59,6 +68,11 @@ fun PlayerActionRow(
                 "queue" -> MelodiaIconButton(onClick = onQueueClick) {
                     Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, contentDescription = "播放队列", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(30.dp))
                 }
+                "share" -> if (onShareClick != null) {
+                    MelodiaIconButton(onClick = onShareClick) {
+                        Icon(Icons.Rounded.Share, contentDescription = "分享", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
+                    }
+                }
                 "quality" -> if (qualityLabel != null) {
                     Text(qualityLabel, color = MelodiaColors.TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
                 }
@@ -76,39 +90,48 @@ fun PlayerActionRow(
                 "comments" -> MelodiaIconButton(onClick = onCommentsClick) {
                     Icon(Icons.AutoMirrored.Rounded.Comment, contentDescription = "评论", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
                 }
+                "lyrics" -> MelodiaIconButton(onClick = onLyricsClick) {
+                    Icon(Icons.Rounded.Subtitles, contentDescription = "全屏歌词", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
+                }
+                "lyricsSettings" -> MelodiaIconButton(onClick = onLyricsSettingsClick) {
+                    Icon(Icons.Rounded.Tune, contentDescription = "歌词设置", tint = MelodiaColors.TextSecondary, modifier = Modifier.size(24.dp))
+                }
             }
         }
     }
 }
 
-// 控件区底部次级入口：输出设备、播放队列
+// 控件区底部次级入口：输出设备、分享、播放队列，平板横屏下支持整合歌词控制（文A/音A切换、歌词设置）
 // connectedDevice 非空时说明当前连着非扬声器设备（有线/蓝牙），图标换类型、变主题色，并在图标后显示设备名；扬声器播放时保持默认
 @Composable
 fun ActionButtons(
     onOutputDeviceClick: () -> Unit,
     onQueueClick: () -> Unit,
+    onShareClick: (() -> Unit)? = null,
     connectedDevice: AudioDeviceInfo? = null,
     // 实际音质短标签，为空时不显示
-    qualityLabel: String? = null
+    qualityLabel: String? = null,
+    showLyricsControls: Boolean = false,
+    secondaryMode: String = "translation",
+    hasTranslation: Boolean = false,
+    hasRoma: Boolean = false,
+    onToggleSecondaryMode: (() -> Unit)? = null,
+    onLyricsSettingsClick: (() -> Unit)? = null
 ) {
     val outputDeviceIcon = connectedDevice?.let { deviceIcon(it.type) } ?: Icons.Rounded.SpeakerGroup
     val outputDeviceTint = if (connectedDevice != null) MaterialTheme.colorScheme.primary else MelodiaColors.TextSecondary
 
-    Box(
+    // 依次排入设备、音质、按钮三个槽位，见 ActionRowLayout
+    ActionRowLayout(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = MelodiaSpacing.lg)
             .padding(top = MelodiaSpacing.sm, bottom = MelodiaSpacing.md)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Box {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .weight(1f, fill = false)
                     // 反馈交给里面的图标按钮，外层只是把设备名也纳入点击区
                     .pressable(MelodiaPress.None, onClick = onOutputDeviceClick)
             ) {
@@ -131,27 +154,112 @@ fun ActionButtons(
                     )
                 }
             }
+        }
+        Box {
+            if (qualityLabel != null) {
+                Text(
+                    text = qualityLabel,
+                    color = MelodiaColors.TextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1
+                )
+            }
+        }
+        Box {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(MelodiaSpacing.xs)
             ) {
+                if (showLyricsControls) {
+                    val hasAnySecondary = hasTranslation || hasRoma
+                    val (badgeText, badgeSub) = when (secondaryMode) {
+                        "roma" -> "音" to "A"
+                        else -> "文" to "A"
+                    }
+                    val badgeTint = when {
+                        !hasAnySecondary -> MelodiaColors.TextSecondary.copy(alpha = 0.35f)
+                        secondaryMode == "none" -> MelodiaColors.TextSecondary.copy(alpha = 0.65f)
+                        else -> MaterialTheme.colorScheme.primary
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .pressable(if (hasAnySecondary && onToggleSecondaryMode != null) MelodiaPress.Icon else MelodiaPress.None) {
+                                if (hasAnySecondary) onToggleSecondaryMode?.invoke()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(
+                                text = badgeText,
+                                color = badgeTint,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = badgeSub,
+                                color = badgeTint,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                modifier = Modifier.padding(start = 1.dp, bottom = 1.dp)
+                            )
+                        }
+                    }
+
+                    if (onLyricsSettingsClick != null) {
+                        MelodiaIconButton(onClick = onLyricsSettingsClick) {
+                            Icon(
+                                imageVector = Icons.Rounded.Tune,
+                                contentDescription = "歌词设置",
+                                tint = MelodiaColors.TextSecondary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (onShareClick != null) {
+                    MelodiaIconButton(onClick = onShareClick) {
+                        Icon(
+                            imageVector = Icons.Rounded.Share,
+                            contentDescription = "分享",
+                            tint = MelodiaColors.TextSecondary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
                 MelodiaIconButton(
                     onClick = onQueueClick,
-                    modifier = Modifier.offset(x = 12.dp)
+                    modifier = if (showLyricsControls) Modifier else Modifier.offset(x = 12.dp)
                 ) {
                     Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, contentDescription = null, tint = MelodiaColors.TextSecondary, modifier = Modifier.size(30.dp))
                 }
             }
         }
-        if (qualityLabel != null) {
-            Text(
-                text = qualityLabel,
-                color = MelodiaColors.TextSecondary,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                modifier = Modifier.align(Alignment.Center)
-            )
+    }
+}
+
+// 底部操作行：按钮按自身宽度靠右，音质尽量居中、碰到按钮就左移、仍放不下则隐藏，设备名只用音质左侧剩余宽度
+@Composable
+private fun ActionRowLayout(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Layout(content = content, modifier = modifier) { measurables, constraints ->
+        val width = constraints.maxWidth
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val gap = MelodiaSpacing.sm.roundToPx()
+        val buttons = measurables[2].measure(loose)
+        val buttonsX = (width - buttons.width).coerceAtLeast(0)
+        val quality = measurables[1].measure(loose.copy(maxWidth = buttonsX))
+        val qualityX = minOf((width - quality.width) / 2, buttonsX - gap - quality.width)
+        val showQuality = quality.width > 0 && qualityX >= 0
+        val deviceMaxWidth = ((if (showQuality) qualityX else buttonsX) - gap).coerceAtLeast(0)
+        val device = measurables[0].measure(loose.copy(maxWidth = deviceMaxWidth))
+        val height = maxOf(device.height, quality.height, buttons.height)
+        layout(width, height) {
+            device.placeRelative(0, (height - device.height) / 2)
+            if (showQuality) quality.placeRelative(qualityX, (height - quality.height) / 2)
+            buttons.placeRelative(buttonsX, (height - buttons.height) / 2)
         }
     }
 }

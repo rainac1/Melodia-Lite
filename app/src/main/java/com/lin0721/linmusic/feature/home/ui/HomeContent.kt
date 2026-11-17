@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LookaheadScope
 import androidx.compose.ui.unit.dp
 import com.lin0721.linmusic.LocalBottomOverlayInset
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.feature.home.domain.HomeCard
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -35,9 +36,17 @@ fun HomeContent(
     onVoiceClick: (shelfTitle: String, List<HomeCard.Voice>, HomeCard.Voice) -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
-    onIntelligenceClick: () -> Unit,
+    onPersonalFmClick: () -> Unit,
     onRoamingClick: () -> Unit,
-    onDailyPlay: () -> Unit
+    onDailyPlay: () -> Unit,
+    personalFmMode: PersonalFmMode,
+    fmCoverUrls: List<String>,
+    isFmPlaying: Boolean,
+    roamingCoverUrl: String,
+    hotTopCoverUrl: String,
+    isRoamingPlaying: Boolean,
+    showRecentPlay: Boolean,
+    showForYou: Boolean
 ) {
     val listState = rememberLazyListState()
     val feed = (uiState as? HomeUiState.Success)?.data
@@ -65,12 +74,14 @@ fun HomeContent(
                             val data = uiState.data
 
                             // 区块高度随列数变化时，下方区块平滑让位；只做位移，不给新增区块加淡入淡出
-                            item(key = RECENT_PLAY_KEY) {
-                                RecentPlaySection(
-                                    items = data.recentPlaylists,
-                                    onClick = { item -> onPlaylistClick(item.id, false) },
-                                    modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
-                                )
+                            if (showRecentPlay) {
+                                item(key = RECENT_PLAY_KEY) {
+                                    RecentPlaySection(
+                                        items = data.recentPlaylists,
+                                        onClick = { item -> onPlaylistClick(item.id, false) },
+                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
+                                    )
+                                }
                             }
 
                             item(key = FOR_YOU_KEY) {
@@ -79,12 +90,19 @@ fun HomeContent(
                                     dailySongs = data.dailySongs,
                                     toplists = data.toplistItems,
                                     recommendPlaylists = data.recommendPlaylists,
+                                    personalFmMode = personalFmMode,
+                                    fmCoverUrls = fmCoverUrls,
+                                    isFmPlaying = isFmPlaying,
+                                    roamingCoverUrl = roamingCoverUrl,
+                                    hotTopCoverUrl = hotTopCoverUrl,
+                                    isRoamingPlaying = isRoamingPlaying,
                                     onDailyOpen = { onPlaylistClick(-1L, false) },
                                     onDailyPlay = onDailyPlay,
                                     onHotlistClick = { onPlaylistClick(it, false) },
-                                    onIntelligenceClick = onIntelligenceClick,
+                                    onPersonalFmClick = onPersonalFmClick,
                                     onRadarClick = { onPlaylistClick(it, false) },
-                                    onRoamingClick = onRoamingClick
+                                    onRoamingClick = onRoamingClick,
+                                    showForYou = showForYou
                                 )
                             }
 

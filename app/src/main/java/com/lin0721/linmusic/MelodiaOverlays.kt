@@ -25,6 +25,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -38,6 +40,8 @@ import com.lin0721.linmusic.core.ui.components.CustomToast
 import com.lin0721.linmusic.core.ui.components.MelodiaNavigationBar
 import com.lin0721.linmusic.core.ui.components.MiniPlayerCard
 import com.lin0721.linmusic.core.ui.components.MiniPlayerLikeMode
+import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
+import com.lin0721.linmusic.core.ui.back.BackDismissState
 import com.lin0721.linmusic.core.ui.theme.uiEnter
 import com.lin0721.linmusic.core.ui.theme.uiExit
 import com.lin0721.linmusic.core.ui.theme.uiTween
@@ -62,6 +66,12 @@ internal val ExpandedBottomBarHeight = 74.dp
 
 // 面板让位后 Tab 栏在内容卡片内的最大宽度
 private val ExpandedNavigationBarMaxWidth = 560.dp
+
+// 预见式返回：播放页跟手缩小、圆角放大
+private val PlayerDragTopCornerShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+private val PlayerBackTransformOrigin = TransformOrigin(0.5f, 1f)
+private const val PlayerBackMinScale = 0.94f
+private const val PlayerBackMaxCornerDp = 28f
 
 // 全屏播放器/侧边栏/创建菜单这类全局浮层是否开着。页面内部自己的 BackHandler（收起子菜单、退出搜索态等）
 // 需要在全局浮层开着时让位，否则 Compose 按注册顺序分发返回事件时会被内层的局部 BackHandler 抢先吞掉，
@@ -125,6 +135,10 @@ fun MelodiaBottomOverlay(
     onMiniPlayerLikeClick: () -> Unit = {},
     miniPlayerLikeMode: MiniPlayerLikeMode = MiniPlayerLikeMode.Collect,
     onCreateDismiss: () -> Unit,
+    // 创建菜单的预见式返回状态，由宿主统一分发给系统返回手势
+    createBackDismissState: BackDismissState? = null,
+    // 滑动切歌时迷你条预览的目标队列项
+    queueTarget: SwipeQueueTarget? = null,
     onNavigate: (Screen) -> Unit,
     onCreateClick: () -> Unit,
     showCreateEntry: Boolean = true,
@@ -248,6 +262,7 @@ fun MelodiaBottomOverlay(
                                     onDragEnd = onMiniPlayerDragEnd,
                                     previousQueueItem = previousQueueItem,
                                     nextQueueItem = nextQueueItem,
+                                    queueTarget = queueTarget,
                                     onPrevious = onMiniPlayerPrevious,
                                     onCancelPendingSkip = onCancelPendingSkip,
                                     isLiked = isMiniPlayerLiked,
@@ -306,6 +321,7 @@ fun MelodiaBottomOverlay(
                             onDragEnd = onMiniPlayerDragEnd,
                             previousQueueItem = previousQueueItem,
                             nextQueueItem = nextQueueItem,
+                            queueTarget = queueTarget,
                             onPrevious = onMiniPlayerPrevious,
                             onCancelPendingSkip = onCancelPendingSkip,
                             isLiked = isMiniPlayerLiked,
@@ -360,23 +376,43 @@ fun MelodiaFullPlayerOverlay(
     onAlbumClick: (Long) -> Unit,
     onPlaylistClick: (Long) -> Unit = {},
     onNavigateToProfile: (Long) -> Unit = {},
+    onNavigateToPrivateChat: (Long) -> Unit = {},
+    // 预见式返回的跟手缩放进度（0~1），由宿主滑动时写入
+    backShrinkFraction: () -> Float = { 0f },
+    onLyricsFullScreenChange: (Boolean) -> Unit = {},
+    onLyricsControlsVisibilityChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     // 仅在播放器打开或动画进行中时渲染，避免关闭后 nestedScroll 拦截触摸事件
     if (currentTrack != null && screenHeightPx > 0f && isPlayerOpen) {
         val offsetProvider by rememberUpdatedState(playerOffsetY)
-        // 圆角只在"是否贴顶"翻转时才触发重组，不随每帧位移重组
-        val hasTopCorners by remember { derivedStateOf { offsetProvider() > 0f } }
+        val shrinkProvider by rememberUpdatedState(backShrinkFraction)
         Box(
             modifier = modifier
                 .fillMaxSize()
                 .offset { IntOffset(0, offsetProvider().toInt()) }
-                .clip(
-                    RoundedCornerShape(
-                        topStart = if (hasTopCorners) 24.dp else 0.dp,
-                        topEnd = if (hasTopCorners) 24.dp else 0.dp
-                    )
-                )
+                .graphicsLayer {
+                    val shrink = shrinkProvider().coerceIn(0f, 1f)
+                    if (shrink > 0f) {
+                        val scale = 1f - (1f - PlayerBackMinScale) * shrink
+                        scaleX = scale
+                        scaleY = scale
+                        transformOrigin = PlayerBackTransformOrigin
+                        val cornerDp = (PlayerBackMaxCornerDp * shrink).dp
+                        shape = RoundedCornerShape(topStart = cornerDp, topEnd = cornerDp)
+                        clip = true
+                    } else {
+                        scaleX = 1f
+                        scaleY = 1f
+                        transformOrigin = PlayerBackTransformOrigin
+                        if (offsetProvider() > 0f) {
+                            shape = PlayerDragTopCornerShape
+                            clip = true
+                        } else {
+                            clip = false
+                        }
+                    }
+                }
         ) {
             FullPlayerScreen(
                 currentTrack = currentTrack,

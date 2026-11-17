@@ -3,6 +3,7 @@ package com.lin0721.linmusic.core.source
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.NetworkStateProvider
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.player.data.PlaybackRepository
 import com.lin0721.linmusic.core.player.data.SongPlaybackInfo
@@ -171,9 +172,13 @@ class AudioSourceRouter(
         getSongPlaybackInfo(songId).map { result -> result.map { it.url } }
 
     // 委托其余方法
+    override fun getLyrics(songId: Long) = delegate.getLyrics(songId)
+    override fun getRawLyrics(songId: Long) = delegate.getRawLyrics(songId)
     override fun getSongDetail(songId: Long) = delegate.getSongDetail(songId)
     override fun getSimilarSongs(songId: Long) = delegate.getSimilarSongs(songId)
     override fun getIntelligenceSongs(songId: Long, playlistId: Long) = delegate.getIntelligenceSongs(songId, playlistId)
+    override fun getPersonalFmSongs(mode: PersonalFmMode) = delegate.getPersonalFmSongs(mode)
+    override fun trashFmSong(songId: Long, playedSeconds: Long) = delegate.trashFmSong(songId, playedSeconds)
     override fun reportStartPlay(songId: Long, source: PlaySource?) = delegate.reportStartPlay(songId, source)
     override fun reportPlayEnd(songId: Long, playedSeconds: Long, source: PlaySource?) = delegate.reportPlayEnd(songId, playedSeconds, source)
     override val playlistRecorded: SharedFlow<Long> get() = delegate.playlistRecorded

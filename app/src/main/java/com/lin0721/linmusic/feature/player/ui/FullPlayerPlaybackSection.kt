@@ -13,9 +13,12 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.theme.uiTween
 import com.lin0721.linmusic.feature.podcast.ui.PodcastPlayerState
+import com.lin0721.linmusic.core.player.PersonalFmMode
 import com.lin0721.linmusic.core.player.PlayMode
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
 
 // 播放器主区之间的留白项个数，与下方 fillGapItem 调用次数保持一致
@@ -36,6 +39,7 @@ fun LazyListScope.fullPlayerPlaybackSection(
     currentKey: Any,
     previousKey: Any? = null,
     nextKey: Any? = null,
+    queueTarget: SwipeQueueTarget? = null,
     // 封面额外水平内缩，面板模式下由 FullPlayerScreen 按可用高度算出
     coverExtraInset: Dp = 0.dp,
     onToggleSidebarFullscreen: (() -> Unit)? = null,
@@ -64,6 +68,9 @@ fun LazyListScope.fullPlayerPlaybackSection(
     onToggleRepeat: () -> Unit,
     onDisableRoaming: () -> Unit,
     onDisableIntelligence: () -> Unit,
+    personalFmMode: PersonalFmMode = PersonalFmMode.DEFAULT,
+    onPersonalFmModeClick: (() -> Unit)? = null,
+    onTrashFm: () -> Unit = {},
     onOutputDeviceClick: () -> Unit,
     onQueueClick: () -> Unit,
     connectedDevice: AudioDeviceInfo? = null,
@@ -95,6 +102,7 @@ fun LazyListScope.fullPlayerPlaybackSection(
                 currentKey = currentKey,
                 previousKey = previousKey,
                 nextKey = nextKey,
+                queueTarget = queueTarget,
                 coverExtraInset = coverExtraInset,
                 baseCoverPadding = baseCoverPadding,
                 onToggleSidebarFullscreen = onToggleSidebarFullscreen,
@@ -116,7 +124,10 @@ fun LazyListScope.fullPlayerPlaybackSection(
             onArtistClick = onArtistClick,
             onAlbumClick = onAlbumClick,
             podcast = podcast,
-            onToggleSubscribe = onToggleSubscribe
+            onToggleSubscribe = onToggleSubscribe,
+            isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM,
+            personalFmMode = personalFmMode,
+            onPersonalFmModeClick = onPersonalFmModeClick
         )
     }
 
@@ -147,6 +158,8 @@ fun LazyListScope.fullPlayerPlaybackSection(
             onDisableRoaming = onDisableRoaming,
             isIntelligence = playContext == "intelligence",
             onDisableIntelligence = onDisableIntelligence,
+            isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM,
+            onTrashFm = onTrashFm,
             showModeButtons = !podcast.isPodcast
         )
     }

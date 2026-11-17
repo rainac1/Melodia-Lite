@@ -59,6 +59,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import com.lin0721.linmusic.core.plugin.LayoutColor
+import com.lin0721.linmusic.core.plugin.LayoutFill
+import com.lin0721.linmusic.core.plugin.resolve
+import com.lin0721.linmusic.core.plugin.withContentColor
+import com.lin0721.linmusic.core.ui.skin.LocalImmersiveBasePalette
+import com.lin0721.linmusic.core.ui.theme.LocalMelodiaPalette
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -113,6 +119,7 @@ import com.lin0721.linmusic.core.player.playSourceText
 import com.lin0721.linmusic.feature.player.ui.rememberPlaybackQualityLabel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.androidx.compose.koinViewModel
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherCoverBadge
 import com.lin0721.linmusic.feature.player.ui.deviceLabel
 import com.lin0721.linmusic.feature.player.ui.rememberCurrentOutputDevice
 import kotlinx.coroutines.delay
@@ -137,6 +144,7 @@ fun MiniPlayerCard(
     onDragEnd: ((Float) -> Unit)? = null,
     previousQueueItem: QueueItem? = null,
     nextQueueItem: QueueItem? = null,
+    queueTarget: SwipeQueueTarget? = null,
     onPrevious: () -> Unit = {},
     onCancelPendingSkip: () -> Boolean = { false },
     isLiked: Boolean = false,
@@ -152,8 +160,8 @@ fun MiniPlayerCard(
         currentTrack.mediaMetadata.artworkUri?.toString() ?: ""
     }
 
-    // 缓存并提取背景色，优先从缓存中获取，无缓存则默认为深灰色
-    var colorPalette by remember(currentTrack.mediaId) {
+    // 切歌时沿用上一首的配色直到新封面取色完成，避免闪回默认底色
+    var colorPalette by remember {
         mutableStateOf(
             PaletteMemoryCache.get(currentTrack.mediaId) ?: FallbackBackdropPalette
         )
@@ -161,10 +169,15 @@ fun MiniPlayerCard(
 
     // 取色跟显示解码完全脱钩，单独发请求；缓存命中就不用再取一次
     LaunchedEffect(currentTrack.mediaId, cleanCoverUrl) {
-        if (PaletteMemoryCache.get(currentTrack.mediaId) == null && cleanCoverUrl.isNotEmpty()) {
+        val cached = PaletteMemoryCache.get(currentTrack.mediaId)
+        if (cached != null) {
+            colorPalette = cached
+        } else if (cleanCoverUrl.isNotEmpty()) {
             val palette = extractBackdropPaletteFromUrl(context, cleanCoverUrl)
             colorPalette = palette
             PaletteMemoryCache.put(currentTrack.mediaId, palette)
+        } else {
+            colorPalette = FallbackBackdropPalette
         }
     }
 
@@ -180,8 +193,6 @@ fun MiniPlayerCard(
     val fillColor = remember(animatedBase, expanded, isDark) {
         if (isDark) animatedBase.darken(if (expanded) 0.20f else 0.45f) else immersiveMidFill(animatedBase)
     }
-    // 卡片内容按沉浸区取色，阴影与描边仍取外层主题
-    val onCoverBackgrounds = remember(fillColor) { listOf(fillColor) }
 
     // 左右滑动切歌的手势识别区域是整条悬浮栏
     // 视觉上是封面+歌名歌手那一行整体跟手平移，靠 SwipeToSkipCoverState 把两者串起来
@@ -189,7 +200,8 @@ fun MiniPlayerCard(
     val swipeDirection = swipeState.syncCurrentKey(
         key = currentTrack.mediaId,
         previousKey = previousQueueItem?.songId?.toString(),
-        nextKey = nextQueueItem?.songId?.toString()
+        nextKey = nextQueueItem?.songId?.toString(),
+        queueTarget = queueTarget
     )
     var displayedPreviousQueueItem by remember { mutableStateOf(previousQueueItem) }
     var displayedNextQueueItem by remember { mutableStateOf(nextQueueItem) }
@@ -229,6 +241,31 @@ fun MiniPlayerCard(
 
     val pluginSpec = LocalPlayerLayouts.current[PlayerLayoutArea.ANDROID_MINI_PLAYER]
     val pluginFrame = pluginSpec?.frame ?: PlayerLayoutFrame.Default
+    // 按最终封面色解析插件颜色再做过渡，不能用过渡中的色相选色板
+    val coverColors = LayoutCoverColors(
+        coverBase(CoverGroup.PLAYER, colorPalette.base) ?: colorPalette.base,
+        colorPalette.textHighlight
+    )
+    val animatedPluginFill = (pluginFrame.background as? FrameBackground.Fill)?.let { background ->
+        @Composable fun animatedColor(expression: LayoutColor): LayoutColor.Fixed {
+            val color by animateColorAsState(
+                targetValue = expression.resolve(coverColors),
+                animationSpec = uiTween(800),
+                label = "mini_plugin_fill"
+            )
+            return LayoutColor.Fixed(color, color)
+        }
+        when (val fill = background.fill) {
+            is LayoutFill.Solid -> LayoutFill.Solid(animatedColor(fill.color))
+            is LayoutFill.Gradient -> fill.copy(colors = fill.colors.map { animatedColor(it) })
+        }
+    }
+    val onCoverBackgrounds = when (val fill = animatedPluginFill) {
+        is LayoutFill.Solid -> listOf(fill.color.resolve())
+        is LayoutFill.Gradient -> fill.colors.map { it.resolve() }
+        null -> listOf(fillColor)
+    }
+    val foreground = pluginFrame.contentColor?.resolve(coverColors)
     val isLandscape = rememberMelodiaOrientationClass() == MelodiaOrientationClass.Landscape
     val miniPlayerCornerRadius = 8.dp
     val miniPlayerShape = pluginFrame.corners?.toShape() ?: RoundedCornerShape(miniPlayerCornerRadius)
@@ -274,19 +311,19 @@ fun MiniPlayerCard(
             )
             .clickable(onClick = onClick)
     ) {
-        ImmersiveTheme(onCoverBackgrounds) {
+        MiniPlayerBackdropTheme(foreground, onCoverBackgrounds) {
             when (val background = pluginFrame.background) {
                 FrameBackground.Host -> Box(
                     modifier = Modifier
                         .matchParentSize()
                         .then(if (isCoverBackdrop(CoverGroup.PLAYER)) Modifier.playerBackdrop(fillColor) else Modifier.background(fillColor))
                 )
-                is FrameBackground.Fill -> CompositionLocalProvider(LocalLayoutCoverColors provides LayoutCoverColors(animatedBase, colorPalette.textHighlight)) {
-                    Box(Modifier.matchParentSize().layoutFill(background.fill))
+                is FrameBackground.Fill -> {
+                    Box(Modifier.matchParentSize().layoutFill(requireNotNull(animatedPluginFill)))
                 }
                 FrameBackground.None -> Unit
             }
-            if (pluginSpec != null) BoxWithConstraints(Modifier.fillMaxWidth()) {
+            if (pluginSpec != null && !pluginSpec.hostContent) BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val pluginLayout = pluginSpec.select(maxWidth.value, isLandscape)
                 val rootHeight = pluginLayout.height?.coerceIn(MIN_PLUGIN_MINI_HEIGHT, MAX_PLUGIN_MINI_HEIGHT)
                 val title = displayedCurrentTrack.mediaMetadata.title?.toString() ?: "未知歌名"
@@ -335,11 +372,14 @@ fun MiniPlayerCard(
                     PlayerLayoutView(pluginLayout.copy(height = rootHeight), Modifier.fillMaxWidth(), pluginState.binding::prepare) { node, nodeModifier ->
                         val scale = node.size.scale
                         when (node.type) {
-                            LayoutNodeType.COVER -> AntiFlickerCoverImage(
-                                url = miniThumbUrl(displayedCleanCoverUrl),
-                                contentScale = ContentScale.Crop,
-                                modifier = nodeModifier.size(((node.maxSize ?: MINI_COVER_SIZE) * scale).dp).clip(node.layoutShape())
-                            )
+                            LayoutNodeType.COVER -> Box(nodeModifier) {
+                                AntiFlickerCoverImage(
+                                    url = miniThumbUrl(displayedCleanCoverUrl),
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.size(((node.maxSize ?: MINI_COVER_SIZE) * scale).dp).clip(node.layoutShape())
+                                )
+                                ListenTogetherCoverBadge(Modifier.align(Alignment.BottomEnd))
+                            }
                             LayoutNodeType.SONG_TITLE -> MiniTitleText(title, nodeModifier, node.maxLines, scale)
                             LayoutNodeType.ARTIST -> MiniArtistText(artist, nodeModifier, scale)
                             LayoutNodeType.SONG_INFO -> Column(nodeModifier) {
@@ -423,6 +463,19 @@ fun MiniPlayerCard(
                 )
             }
         }
+    }
+}
+
+// 插件声明了内容色才覆盖，否则沿用沉浸配色
+@Composable
+private fun MiniPlayerBackdropTheme(foreground: Color?, backgrounds: List<Color>, content: @Composable () -> Unit) {
+    if (foreground != null) {
+        val palette = LocalMelodiaPalette.current.withContentColor(foreground)
+        CompositionLocalProvider(LocalImmersiveBasePalette provides palette, LocalMelodiaPalette provides palette) {
+            ImmersiveTheme(backgrounds, content)
+        }
+    } else {
+        ImmersiveTheme(backgrounds, content)
     }
 }
 
@@ -589,13 +642,16 @@ private fun MiniPlayerContentRow(
             .fillMaxSize()
             .graphicsLayer { translationX = translationXProvider() }
     ) {
-        AntiFlickerCoverImage(
-            url = thumbUrl,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(RadiusCompact))
-        )
+        Box {
+            AntiFlickerCoverImage(
+                url = thumbUrl,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(RadiusCompact))
+            )
+            ListenTogetherCoverBadge(Modifier.align(Alignment.BottomEnd))
+        }
         Spacer(modifier = Modifier.width(12.dp))
         Column(
             modifier = Modifier.weight(1f),
@@ -794,14 +850,14 @@ fun MelodiaNavigationBar(
                         Icon(
                             imageVector = icon,
                             contentDescription = label,
-                            tint = if (isSelected) MelodiaColors.TextPrimary else MelodiaColors.TextSecondary,
+                            tint = if (isSelected) MelodiaColors.Accent else MelodiaColors.TextSecondary,
                             modifier = Modifier.size(if (iconOnly) 24.dp else 22.dp)
                         )
                     }
                     if (!iconOnly) {
                         Text(
                             text = label,
-                            color = if (isSelected) MelodiaColors.TextPrimary else MelodiaColors.TextSecondary,
+                            color = if (isSelected) MelodiaColors.AccentText else MelodiaColors.TextSecondary,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                         )

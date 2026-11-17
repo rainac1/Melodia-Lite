@@ -62,6 +62,7 @@ import com.lin0721.linmusic.core.player.normalizeFullPlayerCoverUrl
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.ArtistPickerEntry
 import com.lin0721.linmusic.core.ui.components.ArtistPickerSheet
+import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.playerBackdrop
@@ -120,7 +121,11 @@ fun FullPlayerScreen(
     // 侧栏→全屏的铺开进度（0 侧栏、1 全屏）与全屏时的卡片宽度。横屏全屏换成宽屏两栏排版，
     // 铺开过程中两套排版各按最终宽度排一次、交叉淡入淡出；竖屏全屏沿用竖排列表，按比例放宽并居中
     sidebarFullscreenProgress: (() -> Float)? = null,
-    fullscreenContentWidth: Dp = Dp.Unspecified
+    fullscreenContentWidth: Dp = Dp.Unspecified,
+    // 宿主能力预留：是否可见、歌词全屏/控件回调（本分支无歌词运行时，回调为空实现）
+    isPlayerVisible: Boolean = isPlayerOpen,
+    onLyricsFullScreenChange: (Boolean) -> Unit = {},
+    onLyricsControlsVisibilityChange: (Boolean) -> Unit = {}
 ) {
     // 播放区透出皮肤背景图时整页按沉浸区深色配色（深色遮罩配白字），浅色主题下也一样
     val playerBackdrop = isCoverBackdrop(CoverGroup.PLAYER)
@@ -184,7 +189,11 @@ private fun FullPlayerScreenContent(
     // 侧栏→全屏的铺开进度（0 侧栏、1 全屏）与全屏时的卡片宽度。横屏全屏换成宽屏两栏排版，
     // 铺开过程中两套排版各按最终宽度排一次、交叉淡入淡出；竖屏全屏沿用竖排列表，按比例放宽并居中
     sidebarFullscreenProgress: (() -> Float)? = null,
-    fullscreenContentWidth: Dp = Dp.Unspecified
+    fullscreenContentWidth: Dp = Dp.Unspecified,
+    // 宿主能力预留：是否可见、歌词全屏/控件回调（本分支无歌词运行时，回调为空实现）
+    isPlayerVisible: Boolean = isPlayerOpen,
+    onLyricsFullScreenChange: (Boolean) -> Unit = {},
+    onLyricsControlsVisibilityChange: (Boolean) -> Unit = {}
 ) {
     val motion = LocalUiMotion.current
     if (currentTrack == null) return
@@ -349,13 +358,10 @@ private fun FullPlayerScreenContent(
 
     // 歌名/歌手要跟封面一起冻结：队列已经先切过去、currentTrack 还没跟上时，
     // 直接用实时值会让封面下方的文字在滑动/切歌过程中先于封面硬跳
-    val previousKeyStr = previousQueueItem?.songId?.toString()
-    val nextKeyStr = nextQueueItem?.songId?.toString()
+    val swipeQueueTarget = SwipeQueueTarget(currentQueueIndex, currentQueueItem?.songId?.toString())
     var displayedTitle by remember { mutableStateOf(title) }
     var displayedArtist by remember { mutableStateOf(artist) }
-    if ((previousKeyStr != null && previousKeyStr == currentTrack.mediaId) ||
-        (nextKeyStr != null && nextKeyStr == currentTrack.mediaId)
-    ) {
+    if (swipeQueueTarget.isAheadOf(currentTrack.mediaId)) {
         // 队列已经先切过去，曲目数据还没跟上，先保留原文字，等 currentTrack 落地后再刷新
     } else {
         displayedTitle = title
@@ -500,6 +506,7 @@ private fun FullPlayerScreenContent(
             currentKey = currentTrack.mediaId,
             previousKey = previousQueueItem?.songId?.toString(),
             nextKey = nextQueueItem?.songId?.toString(),
+            queueTarget = swipeQueueTarget,
             playWhenReady = playWhenReady,
             currentPositionProvider = currentPositionProvider,
             duration = duration,
@@ -632,6 +639,7 @@ private fun FullPlayerScreenContent(
                         currentKey = currentTrack.mediaId,
                         previousKey = previousQueueItem?.songId?.toString(),
                         nextKey = nextQueueItem?.songId?.toString(),
+                        queueTarget = swipeQueueTarget,
                         coverExtraInset = coverExtraInset,
                         onToggleSidebarFullscreen = onToggleSidebarFullscreen,
                         isSidebarFullscreen = isSidebarFullscreen,

@@ -1,11 +1,12 @@
 package com.lin0721.linmusic.core.player.data
 
+import com.lin0721.linmusic.core.model.SongPrivilege
 import com.lin0721.linmusic.core.model.Track
 import kotlinx.serialization.Serializable
 import retrofit2.http.Body
 import retrofit2.http.POST
 
-// 播放引擎所需（播放链接/相似与智能推荐）的网易云 Retrofit 接口定义。
+// 播放引擎所需（播放链接/歌词/相似与智能推荐）的网易云 Retrofit 接口定义。
 interface PlaybackApi {
 
     // 获取歌曲播放链接
@@ -25,11 +26,28 @@ interface PlaybackApi {
         @Body body: SimiSongRequest
     ): SimiSongResponse
 
+    @POST("/eapi/song/lyric/v1")
+    suspend fun getLyrics(
+        @Body body: LyricRequest
+    ): LyricResponse
+
     // ================== 智能推荐歌曲 ==================
     @POST("/eapi/playmode/intelligence/list")
     suspend fun getIntelligenceSongs(
         @Body body: IntelligenceSongsRequest
     ): IntelligenceSongsResponse
+
+    // ================== 私人FM ==================
+    // 前缀暂按 /eapi/v1/radio/get，待真机抓包确认
+    @POST("/eapi/v1/radio/get")
+    suspend fun getPersonalFmSongs(
+        @Body body: PersonalFmRequest
+    ): PersonalFmResponse
+
+    @POST("/weapi/radio/trash/add")
+    suspend fun trashFmSong(
+        @Body body: FmTrashRequest
+    ): FmTrashResponse
 
     // ================== 播放行为上报（打卡） ==================
     // 走 /eapi/feedback/weblog，需分别上报 startplay/play 两条日志
@@ -109,10 +127,47 @@ data class SongDetailRequest(
 @Serializable
 data class SongDetailResponse(
     val code: Int = 0,
-    val songs: List<Track> = emptyList()
+    val songs: List<Track> = emptyList(),
+    // 与 songs 同级下发，按 id 对应
+    val privileges: List<SongPrivilege> = emptyList()
 ) {
     val isSuccess: Boolean get() = code == 200
 }
+
+// ======================= 歌词 DTO =======================
+
+@Serializable
+data class LyricRequest(
+    val id: Long,
+    val cp: Boolean = false,
+    val tv: Int = -1,
+    val lv: Int = -1,
+    val rv: Int = -1,
+    val kv: Int = -1,
+    val yv: Int = 99, // 默认设为 99 以请求 YRC 歌词
+    val ytv: Int = -1,
+    val yrv: Int = -1
+)
+
+@Serializable
+data class LyricResponse(
+    val code: Int = 0,
+    val lrc: LyricContent? = null,
+    val tlyric: LyricContent? = null,
+    val ytlrc: LyricContent? = null,    // 新增：YRC 对应的翻译
+    val romalrc: LyricContent? = null,
+    val yrc: LyricContent? = null, // 新增：存放逐字歌词的原始文本
+    val nolyric: Boolean = false, // 标识是否有歌词，若为 true 则通常无歌词
+    val uncollected: Boolean = false // 标识歌曲是否未收录歌词
+) {
+    val isSuccess: Boolean get() = code == 200
+}
+
+@Serializable
+data class LyricContent(
+    val version: Int = 0,
+    val lyric: String? = null
+)
 
 // ======================= 相似歌曲 DTO =======================
 
@@ -154,6 +209,39 @@ data class IntelligenceItem(
     val recommended: Boolean = false,
     val songInfo: Track? = null
 )
+
+// ======================= 私人FM DTO =======================
+
+@Serializable
+data class PersonalFmRequest(
+    val mode: String,
+    val subMode: String? = null,
+    val limit: Int = 3
+)
+
+// 响应字段待真机抓包确认
+@Serializable
+data class PersonalFmResponse(
+    val code: Int = 0,
+    val data: List<Track> = emptyList()
+) {
+    val isSuccess: Boolean get() = code == 200
+}
+
+@Serializable
+data class FmTrashRequest(
+    val songId: Long,
+    val alg: String = "RT",
+    val time: Long = 25
+)
+
+// 响应字段待真机抓包确认
+@Serializable
+data class FmTrashResponse(
+    val code: Int = 0
+) {
+    val isSuccess: Boolean get() = code == 200
+}
 
 // ======================= 播放打卡上报 DTO =======================
 

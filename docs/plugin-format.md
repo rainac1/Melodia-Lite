@@ -1,17 +1,20 @@
 # 插件格式（format 2）
 
-插件包是扩展名为 `.melodiaplugin` 的 zip 文件，在「设置 → 扩展 → 插件」中导入。导入时会先显示插件需要的权限，确认后才安装并启用。
+插件包是扩展名为 `.melodiaplugin` 的 zip 文件，在「设置 → 插件」（桌面端）或「设置 → 扩展 → 插件」（Android）中导入。导入时会先显示插件需要的权限，确认后才安装并启用。
 
 ## 包结构
 
 | 文件 | 说明 | 上限 |
 |---|---|---|
 | `plugin.json` | 清单，必需 | 256KB |
-| `main.js` | 脚本入口；声明了页面、音源或事件时必需 | 2MB |
+| `main.js` | 脚本入口；声明了页面、音源、歌词源或事件时必需 | 2MB |
 | `ui/*.json` | 页面与布局描述，只允许一层 | 单个 256KB |
+| `background/*.js` | Android 插件 Canvas 2D 背景脚本，只允许一层 | 单个 2MB |
 | `assets/*.png/jpg/jpeg/webp` | 图片，只允许一层 | 单个 2MB |
+| `plugin.jar` | 原生插件的代码，仅桌面端 | 64MB |
+| `native/windows-x64/*.dll` | 原生插件的动态库，可选，仅桌面端 | 单个 64MB |
 
-整个包最多 64 个文件，解压后不超过 10MB。白名单之外的文件会被忽略，并在导入时提示。
+整个包最多 64 个文件，解压后不超过 10MB，原生插件不超过 200MB。沙盒插件不能包含 `plugin.jar` 和动态库。白名单之外的文件会被忽略，并在导入时提示。
 
 ## 清单
 
@@ -27,9 +30,10 @@
   "permissions": ["network", "playback.read", "storage"],
   "network": { "hosts": ["ws.audioscrobbler.com"] },
   "contributes": {
-    "playerLayouts": { "android.miniPlayer": "ui/bar.json" },
+    "playerLayouts": { "desktop.playerBar": "ui/bar.json" },
     "pages": [{ "id": "stats", "title": "听歌统计", "icon": "chart", "ui": "ui/stats.json", "placement": "sidebar" }],
     "audioSources": [{ "id": "main", "name": "示例音源" }],
+    "lyricsSources": [{ "id": "main", "name": "示例歌词" }],
     "events": ["songChanged", "playStateChanged"]
   }
 }
@@ -44,22 +48,26 @@
 | `minAppVersion` | 可选，低于这个版本的应用不能安装；开发构建不校验 |
 | `permissions` | 见下文；未知权限会被忽略并提示 |
 | `network.hosts` | 申请 `network` 时必需；`*.example.com` 只匹配子域名，不匹配 `example.com` 本身 |
-| `contributes` | 至少提供一项能力，否则插件无效 |
-| `platforms` | format 2；可选，目前只支持 `android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
-| `apiVersion` | format 2；写成 `1.0`，可选。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.9` |
+| `contributes` | 沙盒插件至少提供一项能力，否则插件无效；原生插件可以为空 |
+| `kind` | format 2；`sandbox`（默认）或 `native`（桌面端原生插件，见「原生插件」一节） |
+| `main` | format 2；原生插件必需，入口类的完整类名 |
+| `platforms` | format 2；可选，`desktop`、`android`，不写表示所有平台。不包含当前平台时拒绝导入，未知平台会被忽略并提示 |
+| `apiVersion` | format 2；写成 `1.0`，沙盒插件可选，原生插件必需。主版本必须与应用一致，次版本不能高于应用，否则拒绝导入。当前应用提供 `1.11` |
 
 format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` 会被忽略。
 
 ### contributes
 
-- `playerLayouts`：key 为区域名（`android.fullPlayer`、`android.fullPlayerWide`、`android.miniPlayer`），值为 `ui/` 下的文件路径，或直接内联的描述对象。
-- `pages`：每项需要 `id`（小写字母、数字、`-`、`_`，不超过 32 个字符）、`title` 与 `ui`。`placement` 可选，取值为 `sidebar`（默认）、`nowPlayingCard` 或 `settings`（API 1.4 起）。
-- `audioSources`：每项需要 `id`，`name` 可选。
+- `playerLayouts`：key 为区域名（`android.fullPlayer`、`android.fullPlayerWide`、`android.miniPlayer`、`android.lyrics`、`desktop.playerBar`、`desktop.nowPlaying`、`desktop.lyricsView`），值为 `ui/` 下的文件路径，或直接内联的描述对象。
+- `pages`：每项需要 `id`（小写字母、数字、`-`、`_`，不超过 32 个字符）、`title` 与 `ui`。`placement` 可选，取值为 `sidebar`（默认）、`nowPlayingCard` 或 `settings`（API 1.4 起）。原生插件可以写 `"compose": true` 代替 `ui`，见「原生插件」一节，这种页面只能放在侧栏。
+- `audioSources` / `lyricsSources`：每项需要 `id`，`name` 可选。
 - `events`：`songChanged`、`playStateChanged`、`progress`。
 - `commands`（format 2）：每项需要 `id` 与 `title`，脚本用 `melodia.register.command` 实现。
-- `menus`（format 2）：每项需要 `command` 与 `location`。`location` 取 `song` 或 `toolbar`。只显示脚本已注册的命令。`song` 出现在 Android 歌曲「更多」弹层与全屏播放页「更多」弹层（播客节目除外）；`toolbar` 是「设置 → 扩展 → 插件」里的「插件命令」。
+- `menus`（format 2）：每项需要 `command` 与 `location`。`location` 取 `song` 或 `toolbar`。只显示脚本已注册的命令。`song` 出现在桌面歌曲右键菜单、Android 歌曲「更多」弹层与全屏播放页「更多」弹层（播客节目除外）；`toolbar` 在桌面是顶栏按钮，在 Android 是「设置 → 扩展 → 插件」里的「插件命令」。
 - `settings`（format 2）：插件设置项，见「设置」一节。
 - `contentSources`（format 2）：第三方内容，见「内容源」一节。每项需要 `id`，`name` 可选，`search` 为 `true` 时参与搜索。
+- `backdrops`（format 2）：窗口动态背景，见「动态背景」一节。
+- `downloadSources`（format 2，API 1.11 起）：下载源，见「下载源」一节。每项需要 `id`，`name` 可选。
 - `layoutActions`（format 2）：播放器布局的手势里用到 `script:` 动作时写 `true`，插件需要带 `main.js`，见「手势」。
 
 单项写错时只忽略这一项，并在导入时提示。
@@ -69,22 +77,24 @@ format 1 的插件继续有效，其中的 `kind`、`platforms`、`apiVersion` �
 | 权限 | 允许的操作 | 对应能力 |
 |---|---|---|
 | `network` | 访问 `network.hosts` 列出的域名 | |
-| `playback.read` | 读取当前歌曲、播放状态与进度 | `events` 必需 |
+| `playback.read` | 读取当前歌曲、播放状态与进度，原生插件还可读取频谱 | `events` 必需 |
 | `playback.control` | 播放、暂停、切歌、加入队列 | |
 | `storage` | 插件私有的键值存储，上限 1MB | |
 | `audioSource` | 作为音源提供播放链接 | `audioSources` 必需 |
+| `lyricsSource` | 作为歌词源提供歌词 | `lyricsSources` 必需 |
 | `ui.notify` | 显示应用内提示，提示前会带上插件名称 | |
 | `ui.openUrl` | 用系统浏览器打开网页，每次打开前询问用户 | |
 | `library.read` | 读取当前用户的歌单与红心列表 | |
 | `contentSource` | 提供歌曲、歌单与搜索结果 | `contentSources` 必需 |
+| `downloadSource` | 官方无法下载时提供下载链接 | `downloadSources` 必需 |
 | `netease.read` | 以当前用户身份调用网易只读方法 | |
 | `netease.write` | 以当前用户身份调用网易写方法 | |
 
-提供了某项能力却没有申请对应权限时，整个插件无效。插件升级后如果申请了新的权限，导入预览会标出新增的权限。
+提供了某项能力却没有申请对应权限时，整个插件无效。插件升级后如果申请了新的权限，导入预览会标出新增的权限。`native` 权限由 `kind` 决定，沙盒插件申请时会被忽略。
 
 ## 脚本
 
-`main.js` 在隔离的 JS 环境中运行：Android 上是无界面的 WebView。脚本不能访问文件系统、Cookie、账号信息与宿主类，只能通过全局对象 `melodia` 调用宿主能力。所有调用都返回 Promise。
+`main.js` 在隔离的 JS 环境中运行：Android 上是无界面的 WebView，桌面端是 GraalJS。脚本不能访问文件系统、Cookie、账号信息与宿主类，只能通过全局对象 `melodia` 调用宿主能力。所有调用都返回 Promise。
 
 ```js
 await melodia.http.request({ url, method, headers, body })   // 返回 { status, headers, body }
@@ -106,6 +116,7 @@ await melodia.library.playlists()
 await melodia.content.open(source, id, title)
 melodia.on('songChanged', handler)
 melodia.register.audioSource('main', { resolve, search })
+melodia.register.lyricsSource('main', { fetch })
 melodia.register.action('refresh', handler)
 melodia.register.command('share', handler)
 melodia.register.contentSource('main', { search, playlist, resolve })
@@ -136,6 +147,46 @@ melodia.register.audioSource('main', {
 - 只接受 http(s) 链接；返回空、试听链接或超过 8 秒没有返回时视为没有结果，继续尝试下一个音源。
 - 多个插件音源按插件名称顺序尝试；`register` 的名称必须在清单 `audioSources` 里声明过。
 
+## 下载源
+
+API 1.11 起提供。
+
+```js
+melodia.register.downloadSource('main', {
+  resolve: async function(song) {
+    // song: { songId, title, artists, album, durationMs, origin, quality }
+    return {
+      url: 'https://...',
+      type: 'flac',                        // 文件格式，可选
+      quality: 'lossless',                 // 实际音质档位，可选
+      headers: { Referer: 'https://...' }  // 下载时附带的请求头，可选
+    };                                     // 也可以只返回链接字符串
+  }
+});
+```
+
+- 先请求官方下载接口；官方没给链接、只给了试听片段、或请求无损却被降级为压缩格式时，若开启了「无版权/VIP 自动换源」，按插件名称顺序调用下载源。官方链接可用时不会调用。
+- 下载源与音源相互独立：只注册 `audioSource` 的插件不会参与下载，需要的话把同一个实现再注册一次下载源。
+- 只接受格式合法的 http(s) 链接；返回空、试听链接或超过 8 秒没有返回时视为没有结果，继续尝试下一个下载源，所有下载源合计最多等 15 秒，全部没有结果时按官方的失败原因提示。
+- `type` 用作扩展名，只接受 `mp3`、`flac`、`m4a`、`aac`、`ogg`、`wav`，没给或不认识时从链接后缀推断，再推断不出按 `mp3` 保存。
+- `quality` 记入下载记录，取值同 `song.quality`；没给或不认识时按 `standard` 记录。已下载过这首歌且原文件音质不低于 `quality` 时，不会下载，保留原文件。
+- `headers` 随下载请求发出，取值只能是可打印 ASCII 字符；`Range`、`Accept-Encoding`、`Host`、`Connection`、`Content-Length`、`Transfer-Encoding`、`TE`、`Upgrade` 和以 `If-` 开头的请求头由宿主控制，写了也会被忽略，名称或取值不合法的同样丢弃。宿主不会附带网易账号的 Cookie。
+- 文件大小未知，按响应头 `Content-Length` 校验是否下载完整，空响应视为失败，中断后从头重新下载。
+
+## 歌词源
+
+```js
+melodia.register.lyricsSource('main', {
+  fetch: async function(song) {
+    // song: { songId, title, artists, album, durationMs, origin }
+    return '[00:01.00]第一句';       // LRC 文本，或 { lrc: '...' } / { ttml: '...' }
+  }
+});
+```
+
+- 与网易、AMLL、QQ 歌词同时查询，优先级最低：只有其他来源都没有歌词时才使用插件歌词。
+- 多个插件歌词源并发查询，按插件名称顺序取第一份非空结果；单个歌词源超过 8 秒按没有结果处理。
+
 ## 网易接口
 
 插件拿不到 Cookie 和登录凭证，只能调用下表方法。未登录时调用会被拒绝，响应只包含表里列出的数据。
@@ -148,6 +199,7 @@ await melodia.netease.call('song.like', { id: page.items[0].songId, like: true }
 | 方法 | 权限 | 参数 | 返回 |
 |---|---|---|---|
 | `song.detail` | `netease.read` | `ids`（最多 200 个） | 歌曲数组 |
+| `song.lyric` | `netease.read` | `id` | `{ timeMs, text, translation }` 数组 |
 | `search` | `netease.read` | `keyword`，`type`（`song`、`album`、`artist`、`playlist`，默认 `song`），`offset`，`limit`（最多 100） | `{ total, hasMore, items }` |
 | `playlist.detail` / `album.detail` | `netease.read` | `id` | 歌单对象 |
 | `artist.detail` / `artist.topSongs` | `netease.read` | `id` | 歌手对象 / 歌曲数组 |
@@ -209,6 +261,7 @@ await melodia.ui.openUrl('https://www.last.fm/api/auth/?api_key=...&token=...');
 - 每次调用都会弹窗，显示插件名和网址的域名（不显示路径与参数），用户同意后才打开；拒绝或 60 秒未响应时 Promise 被拒绝，之后 30 秒内的调用直接失败。
 - 用户拒绝后 30 秒内，同一插件的新请求直接失败，不再弹窗；同一插件已有请求在等待确认时，新请求也直接失败。
 - 打开成功只代表交给了系统浏览器，插件拿不到网页里的任何内容；需要结果时自己轮询接口。
+- 原生插件对应 `context.ui.openUrl(url)`，拒绝时抛 `PluginApiException`。
 
 ## 命令
 
@@ -295,7 +348,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 ```
 
 - `frame`：区域外框，各区域支持的字段见下表，写了不支持的字段会被忽略并提示。
-- `variants`：最多 4 条，按顺序取第一条满足 `when` 的替换 `layout`，都不满足时用 `layout`。条件可写 `minWidth`、`maxWidth`（区域实际宽度，单位 dp）与 `orientation`（`portrait`、`landscape`）。每条单独校验，某条无效只跳过这一条。
+- `variants`：最多 4 条，按顺序取第一条满足 `when` 的替换 `layout`，都不满足时用 `layout`。条件可写 `minWidth`、`maxWidth`（区域实际宽度，单位 dp）与 `orientation`（`portrait`、`landscape`）。每条单独校验，某条无效只跳过这一条。桌面区域 API 1.6 起支持，宽度取窗口里该区域的宽度，`orientation` 恒为 `landscape`。
 - `styles`：具名样式，见下文「样式」（API 1.7）。
 - 节点上的 `animation` 与 `onTap`、`onDoubleTap`、`onLongPress` 见下文「动效」「手势」（API 1.8）。
 
@@ -304,6 +357,7 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `android.fullPlayer` | `header`：`host`（默认，保留顶部的收起、播放来源与更多）或 `none`（去掉，由布局自己摆 `collapseButton` 等组件）；`cards`：`false` 时去掉下方的信息卡片，首屏就是整页 |
 | `android.fullPlayerWide` | `split`：左栏宽度占比，0.3–0.7，默认 0.4；左栏内容最宽 420 |
 | `android.miniPlayer` | `background`：`host`（默认，封面取色）、`none`，或颜色、渐变（见「颜色」）；`radius`：一个数字，或 `[左上, 右上, 右下, 左下]`，默认 8；`shadow`、`border`：外框阴影与描边，默认 `true` |
+| `desktop.playerBar` | `background`：写颜色或渐变时给播放栏铺底；`host`（默认）与 `none` 都不铺底（API 1.6） |
 
 `header` 为 `none` 而布局里没有一定看得见的 `collapseButton` 时，宿主会在左上角补一个收起按钮。放在 `pager` 里、写了 `visible` 条件、不透明度低于 0.5、宽高小于 16 或静止时被动效淡出、缩小的都不算看得见；`autoHide` 由宿主控制，照常算。必需组件按同样的规则判断，被这样隐藏的播放/暂停按钮或进度条不算数，整个布局无效。下拉收起与返回键始终可用。
 
@@ -311,13 +365,21 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 
 | key | 位置 | 必需 | 不可用的组件 |
 |---|---|---|---|
+| `desktop.playerBar` | 桌面底部播放栏 | `controls` 的 `playPause`、`progress` | `miniLyric`、`lyricsCard`、`pager` |
+| `desktop.nowPlaying` | 桌面「正在播放」面板的封面与标题区 | 无 | `miniLyric`、`lyricsCard`、`actions` |
 | `android.fullPlayer` | Android 全屏播放页首屏 | `playPause` | |
-| `android.fullPlayerWide` | Android 宽屏播放页 | `playPause` | `collapseButton`、`moreButton`、`sourceLabel` |
-| `android.miniPlayer` | Android 迷你播放器 | `playPause` | `actions`、`pager`、`collapseButton`、`moreButton`、`sourceLabel` |
+| `android.fullPlayerWide` | Android 宽屏播放页 | `playPause` | `lyricsCard`、`lyricsView`、`collapseButton`、`moreButton`、`sourceLabel` |
+| `android.miniPlayer` | Android 迷你播放器 | `playPause` | `actions`、`lyricsCard`、`lyricsView`、`pager`、`collapseButton`、`moreButton`、`sourceLabel` |
+| `android.lyrics` | Android 全屏歌词页（API 1.9） | `lyricsView` | `lyricsCard`、`sourceLabel` |
+| `desktop.lyricsView` | 桌面歌词页，全屏时即沉浸播放页（API 1.9） | `lyricsView` | `miniLyric`、`lyricsCard`、`moreButton`、`sourceLabel` |
 
-`android.miniPlayer` 根节点的 `height` 范围 48–140，`controls` 只支持 `previous`、`playPause`、`next`；左右滑动切歌仍然可用，但封面和标题不会跟手移动。
+两个歌词页区域替换整页内容，下拉收起、返回键、页面背景与留边不变；布局里没有一定看得见的 `collapseButton` 时，宿主同样在左上角补一个。这里的 `lyricsView` 就是歌词页原有的歌词列表，`collapseButton` 关闭歌词页。`android.lyrics` 的 `actions` 另有 `lyricsSettings`（打开歌词设置，需写明）；`desktop.lyricsView` 的 `actions` 为 `lyricsSettings`、`fullscreen`、`share`，没写 `buttons` 时为后两个。
 
-`android.fullPlayer` 占满一屏，默认顶部保留收起和更多按钮，下方的信息卡片不变。手机横屏仍使用这个区域，可以用 `orientation: landscape` 的变体单独排版。`android.fullPlayerWide` 只在平板侧栏铺开到全屏时出现，只替换左栏。
+桌面区域不支持 `collapseButton`、`moreButton`、`sourceLabel`、`lyricsView`；`time` 与 `playMode` 按钮 API 1.7 起可用；`desktop.nowPlaying` 的 `pager` 放在可滚动的面板里，高度按页面内容取。
+
+`desktop.playerBar` 根节点的 `height` 即播放栏高度，范围 64–160，默认 80。`android.miniPlayer` 根节点的 `height` 范围 48–140，`controls` 只支持 `previous`、`playPause`、`next`；左右滑动切歌仍然可用，但封面和标题不会跟手移动。
+
+`android.fullPlayer` 占满一屏，默认顶部保留收起和更多按钮，下方的信息卡片不变；放了 `lyricsCard` 时，卡片列表里不再重复显示歌词卡；关掉卡片后，点 `miniLyric` 打开全屏歌词；`miniLyric` 写了 `onTap` 时按 `onTap` 执行。`apiVersion` 低于 `1.10`（或未声明）的插件，手机横屏仍使用这个区域，可以用 `orientation: landscape` 的变体单独排版；声明 `1.10` 及以上时，横屏改用 `android.fullPlayerWide`，见「横竖屏独立选择」。`android.fullPlayerWide` 在平板侧栏铺开到全屏时只替换左栏，右栏歌词与卡片不变。
 
 ### 通用属性
 
@@ -337,9 +399,9 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `opacity` | 0–1，整个节点的不透明度（API 1.7） |
 | `elevation` | 0–24，按 `shape` 投影的阴影（API 1.7） |
 | `border` | `{ "width": 1, "color": "outline" }`，宽度 0–8（API 1.7） |
-| `textAlign` | `start`、`center`、`end`，用于 `text`、`time`（API 1.7） |
-| `marquee` | `true` 时单行放不下的文字横向滚动，用于 `text`（API 1.9） |
-| `autoHide` | `true` 时随播放状态自动淡出并停止接收点击，不改变布局（API 1.9） |
+| `textAlign` | `start`、`center`、`end`，用于 `text`、`time`、`miniLyric`（API 1.7） |
+| `marquee` | `true` 时单行放不下的文字横向滚动，用于 `text`、`miniLyric`（API 1.9） |
+| `autoHide` | `true` 时随歌词页的「自动隐藏控件」淡出并停止接收点击，不改变布局；`lyricsView` 不能写（API 1.9） |
 | `class` | 引用 `styles` 里的样式（API 1.7） |
 | `shape` / `radius` | `rect`、`rounded`、`circle`；`radius` 为圆角半径，默认 8；API 1.5 起可以写 `[左上, 右上, 右下, 左下]` |
 
@@ -352,17 +414,20 @@ API 1.5 起，区域的值也可以写成带 `layout` 字段的对象，用来�
 | `cover` | 封面，点击切换「正在播放」 | `maxSize`（24–1000）、`aspect`（0.25–4，仅 Android）、`size` |
 | `songTitle` / `artist` / `songInfo` | 标题、歌手、两者组合 | `lines`（1–4）、`size` |
 | `likeButton` | 收藏到歌单；播客为订阅电台 | |
+| `miniLyric` | 单行歌词（Android；迷你播放器 API 1.6 起可用） | |
 | `progress` | 进度条 | `showTime` |
-| `time` | 播放时间文字（Android API 1.6） | `format`：`position`（默认）、`duration`、`remaining`、`both`（如 0:12 / 3:45）；`style`、`size` |
-| `controls` | 播放控制 | `buttons`：`shuffle`、`previous`、`playPause`、`next`、`repeat`、`playMode`（单键按列表循环、单曲循环、随机切换；Android API 1.6）；`size`；`variant`：`default`、`plain`（播放键也是无底色图标）、`outlined`（圆形描边），API 1.7，迷你播放器不支持 |
-| `actions` | 操作按钮 | `buttons`：`device`、`queue`、`share`、`quality`、`more`，API 1.6 起另有 `sleepTimer`、`comments` |
+| `time` | 播放时间文字（Android API 1.6，桌面 API 1.7） | `format`：`position`（默认）、`duration`、`remaining`、`both`（如 0:12 / 3:45）；`style`、`size` |
+| `controls` | 播放控制 | `buttons`：`shuffle`、`previous`、`playPause`、`next`、`repeat`、`playMode`（单键按列表循环、单曲循环、随机切换；Android API 1.6，桌面 API 1.7）；`size`；`variant`：`default`、`plain`（播放键也是无底色图标）、`outlined`（圆形描边），API 1.7，迷你播放器不支持 |
+| `actions` | 操作按钮 | `buttons`，桌面：`desktopLyric`、`lyricsView`、`queue`、`device`、`volume`、`miniPlayer`、`fullscreen`；Android：`device`、`queue`、`share`、`quality`、`more`，API 1.6 起另有 `sleepTimer`、`comments`、`lyrics`（打开全屏歌词） |
+| `lyricsCard` | 歌词卡（Android） | |
+| `lyricsView` | 整页滚动歌词，跟随用户的歌词设置，点某行跳到那里；每个布局（含每条变体）只能有一个（Android 全屏页，API 1.6） | |
 | `spacer` | 留白，配合 `weight` 或固定尺寸 | |
 | `text` | 固定文字，不超过 40 个字符 | `text`、`style`（`title`、`body`、`caption`）、`lines`、`size` |
 | `collapseButton` | 收起按钮；侧栏模式下带全屏切换（Android 全屏页，API 1.5） | |
 | `moreButton` | 更多（Android 全屏页，API 1.5） | |
 | `sourceLabel` | 播放来源，点击打开来源歌单（Android 全屏页，API 1.5） | |
 
-`size` 取 `small`、`medium`、`large`。没写 `buttons` 时使用该区域的全部按钮，但 API 1.6 新增的 `playMode`、`sleepTimer`、`comments` 需要写明才会出现。
+`size` 取 `small`、`medium`、`large`。没写 `buttons` 时使用该区域的全部按钮，但 API 1.6 新增的 `playMode`、`sleepTimer`、`comments`、`lyrics` 需要写明才会出现。
 
 ### 播放状态绑定
 
@@ -373,14 +438,14 @@ API 1.6 起，播放器区域里 `text` 的文字和任意节点的 `visible` �
 | `title` / `artist` / `album` | 字符串 |
 | `source` | 播放来源名称，如「每日推荐」、歌单名 |
 | `quality` | 音质标签，如「无损」；用户关掉音质显示或播客时为空 |
-| `playing` / `liked` / `isPodcast` | 布尔值 |
+| `playing` / `liked` / `isPodcast` / `hasLyrics` | 布尔值 |
 | `playMode` | `listLoop`、`singleLoop`、`shuffle` |
 
 ```json
 { "type": "text", "text": "$player.quality", "visible": "$player.quality" }
 ```
 
-写了不存在的字段，或在播放器区域用 `$state` / `$item` 时，这一项会被忽略并提示。进度不开放绑定，用 `time` 组件显示。
+写了不存在的字段，或在播放器区域用 `$state` / `$item` 时，这一项会被忽略并提示。进度不开放绑定，用 `time` 组件显示。桌面 API 1.7 起也可以绑定。
 
 ### 颜色
 
@@ -447,17 +512,19 @@ API 1.8 起，任意节点可以写 `animation`，只改变绘制，不影响布
 
 ### 手势
 
-API 1.8 起，任意节点可以写 `onTap`、`onDoubleTap`、`onLongPress`。自带点击的组件（按钮、歌名等）先处理自己的点击，这时节点上的手势不触发；分页器的左右滑动、下拉收起与返回键不受影响。
+API 1.8 起，任意节点可以写 `onTap`、`onDoubleTap`、`onLongPress`，桌面上右键等同长按，右键不会触发 `onTap`。自带点击的组件（按钮、歌名等）先处理自己的点击，这时节点上的手势不触发；分页器的左右滑动、下拉收起与返回键不受影响。
 
 | 动作 | 可用区域 |
 |---|---|
 | `togglePlay`、`next`、`previous`、`seekForward`、`seekBack`（10 秒）、`toggleLike`、`cyclePlayMode` | 全部 |
 | `pagerNext`、`pagerPrevious` | 全部；让最近一层 `pager` 翻页，不在分页器里时无效 |
-| `openQueue`、`openComments`、`openSleepTimer`、`openMore` | Android 全屏页、宽屏页 |
+| `openLyrics`、`openQueue`、`openComments`、`openSleepTimer`、`openMore` | Android 全屏页、宽屏页；`android.lyrics` 可用除 `openLyrics` 外的四个 |
 | `collapse` | Android 全屏页 |
+| `toggleNowPlaying`、`toggleLyricsView` | 桌面播放栏、「正在播放」面板 |
+| `closeLyrics`、`openLyricsSettings` | 两个歌词页区域（API 1.9） |
 | `script:<名称>` | 全部；调用 `main.js` 里 `melodia.register.action` 注册的同名动作，参数为当前播放状态（字段同 `$player`），5 秒内没有返回按失败处理 |
 
-区域不支持的动作会被忽略并提示。插件用 `script:` 动作时，要在清单的 `contributes` 里写 `"layoutActions": true` 并带上 `main.js`，否则这些动作会被忽略。
+区域不支持的动作会被忽略并提示。沙盒插件用 `script:` 动作时，要在清单的 `contributes` 里写 `"layoutActions": true` 并带上 `main.js`，否则这些动作会被忽略；原生插件用 `context.extensions.action` 注册的动作同样可以调用，不需要声明 `layoutActions`。
 
 ### 校验与回退
 
@@ -507,14 +574,149 @@ API 1.8 起，任意节点可以写 `onTap`、`onDoubleTap`、`onLongPress`。�
 - **数据**：脚本用 `melodia.ui.setState(pageId, patch)` 更新页面数据，渲染时不会调用脚本。
 - **动作**：用 `melodia.register.action(name, handler)` 注册，名称只能用字母、数字、`_`、`:`、`-`，5 秒内没有返回按失败处理。
 - **打开页面**：如果注册了 `open:<页面 id>`，每次打开页面都会调用一次，可以用来刷新数据。
-- **入口**：`placement` 为 `sidebar` 时，在「设置 → 扩展 → 插件」里打开；为 `nowPlayingCard` 时，页面作为卡片显示在全屏播放页，可以在卡片编辑器里排序和隐藏，宽屏播放页的插件卡片排在内置卡片之后。为 `settings` 时，页面不进侧栏，插件列表里这个插件会出现设置按钮，点开后在设置弹窗里显示页面；同时声明了 `settings` 设置项时，设置项排在页面下方。每个插件只取第一个 `settings` 页面。
+- **入口**：`placement` 为 `sidebar` 时，桌面端在音乐库侧栏底部的「插件」分组，Android 在「设置 → 扩展 → 插件」；为 `nowPlayingCard` 时，页面作为卡片显示在桌面「正在播放」面板与 Android 全屏播放页，可以在卡片编辑器里排序和隐藏。宽屏播放页的插件卡片排在内置卡片之后。为 `settings` 时，页面不进侧栏，插件列表里这个插件会出现设置按钮，点开后在设置弹窗里显示页面；同时声明了 `settings` 设置项时，设置项排在页面下方。每个插件只取第一个 `settings` 页面。
+
+## 动态背景
+
+替换窗口背景，优先于皮肤的背景图。目前只有桌面端生效。多个背景在「设置 → 插件 → 动态背景」里选择，默认用最近启用的插件，也可以选「不使用」。
+
+```json
+"backdrops": [
+  { "id": "rain", "name": "雨夜", "fps": 12, "dim": 0.4, "paneOpacity": 0.6, "frames": ["assets/rain1.png", "assets/rain2.png"] }
+]
+```
+
+| 字段 | 说明 |
+|---|---|
+| `id` / `name` | `id` 必需，`name` 可选 |
+| `fps` | 1–30，默认 12 |
+| `dim` | 背景上的遮罩，0–1，默认 0.3 |
+| `paneOpacity` | 面板不透明度，0–1，默认 0.6 |
+| `frames` | `assets/` 下的图片，循环播放，最多 32 帧，长边缩到 1280。沙盒插件必需 |
+
+原生插件可以不写 `frames`，改用代码逐帧渲染：
+
+```kotlin
+context.extensions.backdropSource("aurora", object : BackdropSource {
+    override val maxWidth = 320
+
+    override fun render(frame: BackdropFrame) {
+        // 把不透明的 ARGB 写进 frame.pixels，长度为 width * height
+    }
+})
+```
+
+`render` 在后台线程调用，帧率与遮罩来自清单，宿主把画面拉伸铺满。窗口隐藏或最小化时不调用；关闭界面动画时只渲染一帧。需要 API 1.1。沙盒脚本不能逐帧绘制。
 
 ## 分发
 
 除了手动导入，还可以提交到插件目录，见 [plugin-catalog.md](plugin-catalog.md)。升级时保留上一版本，可以在插件列表里回退，插件数据不变。
 
+## 原生插件
+
+只有桌面端支持，用于沙盒做不到的场景。原生插件在主进程运行，等同于运行任意程序：权限声明只对通过 API 的调用生效，无法真正限制它。Android 导入时直接拒绝。
+
+要先在「设置 → 插件」开启「允许原生插件」（默认关闭）才能导入和加载。
+
+```kotlin
+class HelloPlugin : MelodiaPlugin {
+    override fun onLoad(context: PluginContext) {
+        context.extensions.command("hello") {
+            context.ui.toast("你好")
+        }
+    }
+}
+```
+
+完整示例在 `plugin-sample` 模块，`gradlew :plugin-sample:packagePlugin` 生成可导入的包。
+
+- **编译依赖**：`compileOnly(project(":plugin-api"))`。宿主提供 `plugin-api`、Kotlin 标准库、kotlinx.coroutines 和 Compose（runtime、ui、foundation、animation、material3 与 Skia），这些不要打进 `plugin.jar`；其他依赖打进 JAR，包括 Compose 图标库。应用内部的类对插件不可见。
+- **Compose 页面**：清单写 `{ "id": "panel", "title": "面板", "compose": true }`，代码里调用 `context.extensions.composePage("panel") { ... }`。需要 API 1.2，用与应用相同的 Compose 版本（当前 1.10）编译，Compose 有不兼容升级时 API 主版本会提升。页面在独立的窗口层渲染：出错只影响这个页面，但不继承应用主题，自己铺背景，也盖在应用内的弹层和菜单上方。
+- **入口**：`main` 指向实现 `MelodiaPlugin` 的类，需要公开的无参构造函数。`onLoad` 要在 10 秒内返回，耗时工作放进 `context.scope`。
+- **扩展**：通过 `context.extensions` 注册音源、歌词源、下载源（API 1.11 起，返回 `DownloadLink`）、内容源、命令、页面动作、动态背景和播放监听。除页面动作外，都要先在清单 `contributes` 里声明，否则加载失败。界面可以用声明式页面或 Compose 页面。
+- **宿主能力**：除频谱外，`context` 提供 `player`、`library`、`netease`、`storage`、`settings`、`ui`、`logger`，与沙盒 API 一一对应，同样要在清单里申请权限；网易写入同样限频和确认。
+- **频谱**：`context.spectrum.frames()` 返回 `Flow<SpectrumFrame>`，约 30 帧/秒，含 64 个对数频段（20 Hz–16 kHz，0–1）和最近 1024 个单声道采样（-1–1）。需要 API 1.3 和 `playback.read` 权限，缺权限或系统不支持时收集会抛 `PluginApiException`。收集时才采集，来不及处理的帧会被丢弃，无声时停发；数组由所有订阅者共用，不要修改。数据取自实际输出，随音量变化；优先只录 Melodia 自己的声音，系统不支持时退回默认输出设备的混音，这时会混入其他应用的声音。沙盒脚本和 Android 不提供。
+- **动态库**：用 `context.nativeLibrary("x.dll")` 取路径，在插件代码里调用 `System.load`。
+- **可用的 JDK 模块**：`java.base`、`java.datatransfer`、`java.desktop`、`java.instrument`、`java.logging`、`java.management`、`java.naming`、`java.prefs`、`java.security.sasl`、`java.sql`、`java.transaction.xa`、`java.xml`、`jdk.crypto.ec`、`jdk.management`、`jdk.unsupported`。超出范围的类运行时找不到。
+- **生命周期**：只在应用启动时加载。导入、升级和重新启用都要重启才生效；停用、删除和关闭总开关时立即调用 `onUnload` 并注销扩展，已加载的类要到重启才释放。
+- **出错处理**：回调抛异常或超时按没有结果处理，连续 5 次自动停用。加载时导致应用退出的插件，下次启动自动停用。用 `--safe-mode` 启动可以跳过所有原生插件。回调阻塞时宿主按超时返回，但线程无法结束；DLL 崩溃和主线程阻塞无法拦截。
+- **完整性**：不做签名校验。列表显示来源文件名和 `plugin.jar` 的 SHA-256；文件与安装时不一致时拒绝加载，需要重新导入。
+
 ## 存储
 
 - 已安装的插件放在应用数据目录的 `plugins/<id>/` 下，启用状态与已确认的权限记录在 `plugins/.state.json`。
+- 原生插件运行时使用 `plugins/.native/run/<id>/` 下的副本，每次启动重建。
 - 插件数据放在 `plugins/.data/<id>/`，升级时保留，删除插件时一并删除。
 - 导出时只打包安装文件，不包含插件数据。
+
+
+## 插件设置迷你播放器外观（API 1.10）
+
+`contributes.playerLayouts.android.miniPlayer` 可以引用带 `"layout": "host"` 的文件。
+这种模式保留宿主原有封面、歌名、歌手/输出设备、收藏、播放控制、进度及滑动交互，只让插件设置 `frame`。
+此模式仅允许 `layout` 和 `frame`，不支持 `variants`。未启用或未选择插件布局时，宿主保留原来的封面取色背景。
+
+`frame.contentColor` 可指定内容颜色，支持深浅色固定值；不声明则沿用默认沉浸配色。
+颜色新增混合表达式：
+
+```json
+{"mix": ["cover.base", "#FFFFFF"], "amount": {"light": 0.82, "dark": 0.15}}
+```
+
+`mix` 必须为两个合法颜色，`amount` 可为一个数或包含 `light`、`dark` 的对象，范围 0–1。
+数值表示向第二个颜色混合的比例，允许最多 4 层嵌套；非法结构被拒绝。
+可用于渐变的每个颜色，让插件自行决定封面色的混白比例、深浅色差异和渐变方向。
+
+
+## 背景画布（API 1.10，Android）
+
+布局 `android.fullPlayer` 或 `android.lyrics` 的 `frame.canvas` 引用 `background/*.js`。
+仅允许一层文件，单个脚本最多 2MB；它与 `main.js` 的宿主能力脚本相互独立。
+当前版本通过现有布局选择挂载背景，尚未提供独立背景选择器。
+
+插件入口设置 `background.render = (ctx, state, timeMs) => { ... }`，由脚本直接在 Canvas 2D 绘制。
+`state` 包含 `version: 1`、逻辑像素宽高 `width/height`、`pixelRatio`、`theme`（light/dark）、
+`coverColor`（#RRGGBB）、`playing`、`motion`、`visible`。
+可选 `background.onState = state => { ... }` 接收状态更新。时间为从 0 开始的动画累计毫秒，与音频进度无关；初始相位偏移由插件自行决定。
+宿主在调用前设置像素缩放；插件使用逻辑像素坐标。当前绘制上限 30fps、100 万背板像素。
+暂停或关闭动画时仍绘制静态帧；非前台时销毁整个文档，恢复前台重建。
+画布不接收触摸，不具备网络、文件、账号、存储或原生桥接能力。
+脚本加载/绘制异常时画布透明，露出页面主题底色；其他布局不受影响。宿主不提供内置光斑算法，效果由插件脚本实现。
+当前接口提供 Canvas 2D，不承诺 WebGL 或插件可执行任意平台原生代码。
+
+歌词页可选 `frame.sungColor` / `frame.unsungColor`，支持已有颜色表达式。
+API 1.10 新增 `frame.harmonySungColor` / `frame.harmonyUnsungColor`，用于和声的已唱、未唱颜色。
+已唱和未唱颜色分别生效，省略时沿用宿主配色。`sungColor` 用于主声部逐字高亮及当前普通歌词。
+`android.lyrics` 的 `frame.translationColor` 和 `frame.romanizationColor` 分别设置翻译和音译颜色，也适用于和声附带的翻译和音译。
+声明后，副文本在当前行和其他行使用同一个设定颜色。省略时沿用默认配色，主声部当前行使用主题正文色，其他行使用未唱文字颜色，和声副文本跟随和声行的颜色。
+插件可声明深浅色分支、封面色混合及带 alpha 的固定颜色；宿主只解析并传给现有歌词组件。
+
+小歌词的 `onTap` 为显式覆盖：有声明时交给通用动作系统，无声明时沿用原组件点击。
+禁用插件或切回内置布局后，使用原有播放器背景、歌词主题、配色和交互。
+
+效果职责示例：无卡片全屏排版、小歌词打开歌词页、迷你条渐变、歌词及和声配色均写在插件包；
+宿主仅保留布局解释器、颜色表达式、动作分发、画布与组件样式参数。
+
+全屏歌词页也支持 `"layout": "host"`：保留宿主原有标题、歌词和完整控制栏，`frame` 仍可声明插件画布和歌词颜色。
+
+### 通用 HSL 颜色调整（API 1.10）
+
+颜色表达式支持 `{"adjust":"cover.base","hue":0,"saturation":{"light":1.15,"dark":1}}`。
+`adjust` 可为任意颜色表达式（包括 mix）；hue 为旋转角度，默认 0，按 360 度循环；saturation 为 HSL 饱和度倍率，默认 1，范围 0–4，结果饱和度限制在 0–1。
+两个参数均支持数字或完整的 light/dark 对象。明度、透明度保持不变，灰色保持无彩色。表达式最多嵌套 4 层。
+
+### 色相分段与画布颜色（API 1.10）
+
+通用颜色表达式：
+```json
+{"huePalette":"cover.base","minSaturation":0.16,"neutral":{"light":"#405F83","dark":"#CCDEF3"},"stops":[{"hue":0,"color":{"light":"#A52D43","dark":"#FFB7C1"}},{"hue":195,"color":{"light":"#285EA3","dark":"#B4D4FF"}}]}
+```
+`stops` 是 1–16 个严格递增的起始色相（0 ≤ hue < 360）。选择不大于输入色相的最后一项，低于第一项时环绕到最后一项。使用 HSV 饱和度判断色相是否可靠（低于插件声明的 minSaturation 时选 neutral；无彩色总选 neutral），不将封面饱和度或明度带入输出颜色。输出可为任意颜色表达式，仍受总嵌套深度限制。
+
+Android 播放页／全屏歌词页支持 `frame.canvasColors`：最多 16 个命名颜色表达式，名称匹配 `[A-Za-z][A-Za-z0-9_]{0,31}`。宿主解析、平滑过渡后以 `state.colors` 的 `#RRGGBB` 值传入插件画布。不提供时传空对象，原有画布脚本兼容。预设列表、阈值及颜色均由插件声明，宿主不内置具体配色。画布是 RGB 表面，此接口不传透明度。
+
+### 横竖屏独立选择（API 1.10）
+
+仅对 `apiVersion` 声明为 `1.10` 及以上的插件生效。竖屏播放页、背景和沉浸主题判定读取 `android.fullPlayer`；横屏读取 `android.fullPlayerWide`。宽屏区域新增 `frame.header`/`cards`/`canvas`/`canvasColors`，并支持 `layout: host`。横屏选择内置布局（或未提供该区域）时不回退到竖屏的插件布局。全屏歌词背景仍由 `android.lyrics` 独立选择。
+
+竖屏选中的是低于 `1.10` 的插件时，横屏沿用它的竖屏布局，与之前的版本一致。

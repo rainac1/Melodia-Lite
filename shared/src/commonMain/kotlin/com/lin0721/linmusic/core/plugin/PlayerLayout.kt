@@ -22,9 +22,11 @@ enum class LayoutNodeType(val key: String, val isContainer: Boolean = false) {
     ARTIST("artist"),
     SONG_INFO("songInfo"),
     LIKE_BUTTON("likeButton"),
+    MINI_LYRIC("miniLyric"),
     PROGRESS("progress"),
     CONTROLS("controls"),
     ACTIONS("actions"),
+    LYRICS_CARD("lyricsCard"),
     SPACER("spacer"),
     TEXT("text"),
     PAGER("pager", true),
@@ -32,6 +34,7 @@ enum class LayoutNodeType(val key: String, val isContainer: Boolean = false) {
     MORE_BUTTON("moreButton"),
     SOURCE_LABEL("sourceLabel"),
     TIME("time"),
+    LYRICS_VIEW("lyricsView"),
 
     // 以下只用于插件页面
     HEADING("heading"),
@@ -258,26 +261,26 @@ enum class PlayerLayoutArea(
         "android.fullPlayer", "Android 全屏播放页",
         CONTAINERS + setOf(
             LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
-            LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
-            LayoutNodeType.ACTIONS, LayoutNodeType.SPACER, LayoutNodeType.TEXT,
+            LayoutNodeType.LIKE_BUTTON, LayoutNodeType.MINI_LYRIC, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
+            LayoutNodeType.ACTIONS, LayoutNodeType.LYRICS_CARD, LayoutNodeType.SPACER, LayoutNodeType.TEXT,
             LayoutNodeType.PAGER, LayoutNodeType.COLLAPSE_BUTTON, LayoutNodeType.MORE_BUTTON, LayoutNodeType.SOURCE_LABEL,
-            LayoutNodeType.TIME
+            LayoutNodeType.TIME, LayoutNodeType.LYRICS_VIEW
         ),
         ANDROID_ACTIONS,
         ALL_CONTROLS,
-        frameFields = setOf("header", "cards"),
+        frameFields = setOf("header", "cards", "canvas", "canvasColors"),
         hostActions = HostAction.ANDROID_PLAYER + HostAction.COLLAPSE
     ),
     ANDROID_FULL_PLAYER_WIDE(
         "android.fullPlayerWide", "Android 宽屏播放页",
         CONTAINERS + setOf(
             LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
-            LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
+            LayoutNodeType.LIKE_BUTTON, LayoutNodeType.MINI_LYRIC, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
             LayoutNodeType.ACTIONS, LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.PAGER, LayoutNodeType.TIME
         ),
         ANDROID_ACTIONS,
         ALL_CONTROLS,
-        frameFields = setOf("split"),
+        frameFields = setOf("split", "header", "cards", "canvas", "canvasColors"),
         hostActions = HostAction.ANDROID_PLAYER
     ),
     ANDROID_MINI_PLAYER(
@@ -285,10 +288,60 @@ enum class PlayerLayoutArea(
         CONTAINERS + setOf(
             LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
             LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
-            LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.TIME
+            LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.TIME, LayoutNodeType.MINI_LYRIC
         ),
         controlButtons = listOf("previous", CONTROL_PLAY_PAUSE, "next"),
-        frameFields = setOf("background", "radius", "shadow", "border")
+        frameFields = setOf("background", "radius", "shadow", "border", "contentColor")
+    ),
+    DESKTOP_PLAYER_BAR(
+        "desktop.playerBar", "桌面播放栏",
+        CONTAINERS + setOf(
+            LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
+            LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS, LayoutNodeType.ACTIONS,
+            LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.TIME
+        ),
+        listOf("desktopLyric", "lyricsView", "queue", "device", "volume", "miniPlayer", "fullscreen"),
+        ALL_CONTROLS,
+        frameFields = setOf("background"),
+        hostActions = HostAction.DESKTOP
+    ),
+    DESKTOP_NOW_PLAYING(
+        "desktop.nowPlaying", "桌面「正在播放」顶部",
+        CONTAINERS + setOf(
+            LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
+            LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS, LayoutNodeType.SPACER,
+            LayoutNodeType.TEXT, LayoutNodeType.PAGER, LayoutNodeType.TIME
+        ),
+        controlButtons = ALL_CONTROLS,
+        hostActions = HostAction.DESKTOP
+    ),
+    ANDROID_LYRICS(
+        "android.lyrics", "Android 全屏歌词页",
+        CONTAINERS + setOf(
+            LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
+            LayoutNodeType.LIKE_BUTTON, LayoutNodeType.MINI_LYRIC, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS,
+            LayoutNodeType.ACTIONS, LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.PAGER,
+            LayoutNodeType.COLLAPSE_BUTTON, LayoutNodeType.MORE_BUTTON, LayoutNodeType.TIME, LayoutNodeType.LYRICS_VIEW
+        ),
+        ANDROID_ACTIONS + LYRICS_SETTINGS,
+        ALL_CONTROLS,
+        frameFields = setOf(
+            "canvas", "canvasColors", "sungColor", "unsungColor", "harmonySungColor", "harmonyUnsungColor",
+            "translationColor", "romanizationColor"
+        ),
+        hostActions = HostAction.ANDROID_LYRICS
+    ),
+    DESKTOP_LYRICS_VIEW(
+        "desktop.lyricsView", "桌面歌词页",
+        CONTAINERS + setOf(
+            LayoutNodeType.COVER, LayoutNodeType.SONG_TITLE, LayoutNodeType.ARTIST, LayoutNodeType.SONG_INFO,
+            LayoutNodeType.LIKE_BUTTON, LayoutNodeType.PROGRESS, LayoutNodeType.CONTROLS, LayoutNodeType.ACTIONS,
+            LayoutNodeType.SPACER, LayoutNodeType.TEXT, LayoutNodeType.PAGER, LayoutNodeType.COLLAPSE_BUTTON,
+            LayoutNodeType.TIME, LayoutNodeType.LYRICS_VIEW
+        ),
+        listOf(LYRICS_SETTINGS, "fullscreen", "share"),
+        ALL_CONTROLS,
+        hostActions = HostAction.DESKTOP_LYRICS
     );
 
     // 没写 buttons 时用的按钮；后来新增的按钮需要显式写出，避免改变已发布插件的样子
@@ -296,8 +349,18 @@ enum class PlayerLayoutArea(
     val defaultActionButtons: List<String> get() = actionButtons - OPT_IN_BUTTONS
 
     // 缺少必需组件时返回原因
-    fun missingRequired(root: PlayerLayoutNode): String? =
-        if (root.showsButton(LayoutNodeType.CONTROLS, CONTROL_PLAY_PAUSE)) null else "必须包含播放/暂停按钮$HIDDEN_HINT"
+    fun missingRequired(root: PlayerLayoutNode): String? = when (this) {
+        DESKTOP_PLAYER_BAR -> when {
+            !root.showsButton(LayoutNodeType.CONTROLS, CONTROL_PLAY_PAUSE) -> "播放栏必须包含播放/暂停按钮$HIDDEN_HINT"
+            !root.reliablyShows { it.type == LayoutNodeType.PROGRESS } -> "播放栏必须包含进度条$HIDDEN_HINT"
+            else -> null
+        }
+        ANDROID_FULL_PLAYER, ANDROID_FULL_PLAYER_WIDE, ANDROID_MINI_PLAYER ->
+            if (root.showsButton(LayoutNodeType.CONTROLS, CONTROL_PLAY_PAUSE)) null else "必须包含播放/暂停按钮$HIDDEN_HINT"
+        DESKTOP_NOW_PLAYING -> null
+        ANDROID_LYRICS, DESKTOP_LYRICS_VIEW ->
+            if (root.contains(LayoutNodeType.LYRICS_VIEW)) null else "歌词页必须包含 lyricsView"
+    }
 
     companion object {
         fun fromKey(key: String): PlayerLayoutArea? = entries.firstOrNull { it.key == key }
@@ -305,24 +368,31 @@ enum class PlayerLayoutArea(
 }
 
 private val CONTAINERS = setOf(LayoutNodeType.COLUMN, LayoutNodeType.ROW, LayoutNodeType.BOX)
-private val ANDROID_ACTIONS = listOf("device", "queue", "share", "quality", "more", "sleepTimer", "comments")
+private val ANDROID_ACTIONS = listOf("device", "queue", "share", "quality", "more", "sleepTimer", "comments", "lyrics")
 
 private const val HIDDEN_HINT = "，且不能放在 pager 里、不能用 visible 条件、透明度、过小尺寸或动效隐藏"
 
 const val CONTROL_PLAY_PAUSE = "playPause"
 const val CONTROL_PLAY_MODE = "playMode"
+const val LYRICS_SETTINGS = "lyricsSettings"
 val CONTROL_BUTTONS = listOf("shuffle", "previous", CONTROL_PLAY_PAUSE, "next", "repeat")
 private val ALL_CONTROLS = CONTROL_BUTTONS + CONTROL_PLAY_MODE
-private val OPT_IN_BUTTONS = setOf(CONTROL_PLAY_MODE, "sleepTimer", "comments")
+private val OPT_IN_BUTTONS = setOf(CONTROL_PLAY_MODE, "sleepTimer", "comments", "lyrics", LYRICS_SETTINGS)
 
 sealed interface PlayerLayoutParseResult {
     data class Success(
         val root: PlayerLayoutNode,
         val warnings: List<String>,
         val frame: PlayerLayoutFrame = PlayerLayoutFrame.Default,
-        val variants: List<PlayerLayoutVariant> = emptyList()
+        val variants: List<PlayerLayoutVariant> = emptyList(),
+        val hostContent: Boolean = false,
+        val canvasScript: String? = null,
+        val separateLandscape: Boolean = false
     ) : PlayerLayoutParseResult {
-        val spec: PlayerLayoutSpec get() = PlayerLayoutSpec(root, frame, variants)
+        val spec: PlayerLayoutSpec get() = PlayerLayoutSpec(
+            root, frame, variants,
+            hostContent = hostContent, canvasScript = canvasScript, separateLandscape = separateLandscape
+        )
     }
     data class Failure(val reason: String) : PlayerLayoutParseResult
 }
@@ -366,6 +436,13 @@ object PlayerLayoutParser {
     // 值可以直接是布局树，也可以是带 layout 字段的外壳对象
     fun parse(area: PlayerLayoutArea, root: JsonObject): PlayerLayoutParseResult {
         if ("layout" !in root || "type" in root) return parseAreaTree(area, root, emptyMap())
+        if ((root["layout"] as? JsonPrimitive)?.content == "host") {
+            if (area !in setOf(PlayerLayoutArea.ANDROID_MINI_PLAYER, PlayerLayoutArea.ANDROID_LYRICS, PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE)) return PlayerLayoutParseResult.Failure("layout: host 仅支持 Android 迷你播放器、全屏歌词页和宽屏播放页")
+            if (root.keys.any { it !in setOf("layout", "frame") }) return PlayerLayoutParseResult.Failure("宿主内容模式只支持 layout 和 frame")
+            val warnings = mutableListOf<String>()
+            val frame = PlayerLayoutFrameParser.parse(area, root["frame"], warnings)
+            return PlayerLayoutParseResult.Success(PlayerLayoutNode(LayoutNodeType.BOX), warnings, frame, hostContent = true)
+        }
         val layout = root["layout"] as? JsonObject ?: return PlayerLayoutParseResult.Failure("layout 不是有效的布局对象")
         val styleWarnings = mutableListOf<String>()
         val styles = LayoutStyleParser.styles(root["styles"], styleWarnings)
@@ -434,6 +511,7 @@ object PlayerLayoutParser {
         val warnings = mutableListOf<String>()
         var count = 0
         var animated = 0
+        var lyricsViews = 0
         fun build(json: JsonElement, depth: Int, inPager: Boolean): PlayerLayoutNode? {
             if (depth > MAX_DEPTH) throw TooLarge("布局层级超过 $MAX_DEPTH 层")
             count++
@@ -447,6 +525,8 @@ object PlayerLayoutParser {
             val type = typeKey?.let(LayoutNodeType::fromKey) ?: return null.also { warnings += "未知组件 ${typeKey ?: "（缺少 type）"}，已忽略" }
             if (type !in components) return null.also { warnings += "${label}不支持组件 ${type.key}，已忽略" }
             if (type == LayoutNodeType.PAGER && inPager) return null.also { warnings += "pager 不能嵌套，已忽略" }
+            // 歌词列表共用宿主的滚动状态，同一棵树里只能有一个
+            if (type == LayoutNodeType.LYRICS_VIEW && lyricsViews++ > 0) return null.also { warnings += "lyricsView 只能有一个，多出的已忽略" }
             if (!playerBindings) MOTION_KEYS.filter { it in obj }.forEach { warnings += "${label}不支持 $it，已忽略" }
             val childInPager = inPager || type == LayoutNodeType.PAGER
             var children = if (type.isContainer || type == LayoutNodeType.LIST || type == LayoutNodeType.TABS) {
@@ -523,9 +603,10 @@ object PlayerLayoutParser {
                 onTap = gesture("onTap"),
                 onDoubleTap = gesture("onDoubleTap"),
                 onLongPress = gesture("onLongPress"),
-                marquee = type == LayoutNodeType.TEXT &&
+                marquee = (type == LayoutNodeType.TEXT || type == LayoutNodeType.MINI_LYRIC) &&
                     (obj["marquee"] as? JsonPrimitive)?.booleanOrNull == true,
-                autoHide = playerBindings && (obj["autoHide"] as? JsonPrimitive)?.booleanOrNull == true,
+                autoHide = playerBindings && (obj["autoHide"] as? JsonPrimitive)?.booleanOrNull == true &&
+                    (type != LayoutNodeType.LYRICS_VIEW).also { ok -> if (!ok) warnings += "lyricsView 不能写 autoHide，已忽略" },
                 variant = if (type == LayoutNodeType.CONTROLS) {
                     enumValue(obj, "variant", ControlVariant::fromKey, warnings) ?: ControlVariant.DEFAULT
                 } else {
@@ -627,7 +708,17 @@ object PlayerLayoutParser {
             is PluginUiRef.Inline -> ref.tree
             is PluginUiRef.File -> readJson(manifest, ref.path) ?: return PlayerLayoutParseResult.Failure("${ref.path} 缺失或不是有效的 JSON 对象")
         }
-        val parsed = parse(area, json)
+        var parsed = parse(area, json)
+        if (parsed is PlayerLayoutParseResult.Success) {
+            val minor = manifest.apiVersion?.substringAfter('.', "")?.toIntOrNull()
+            parsed = parsed.copy(separateLandscape = minor != null && minor >= SEPARATE_LANDSCAPE_API_MINOR)
+            val path = parsed.frame.canvas
+            if (path != null) {
+                val file = manifest.file(path)
+                if (file == null || file.length() > 2 * 1024 * 1024) return PlayerLayoutParseResult.Failure("背景脚本缺失或超过 2MB: $path")
+                parsed = parsed.copy(canvasScript = file.readText())
+            }
+        }
         if (parsed !is PlayerLayoutParseResult.Success || !parsed.spec.usesScript || manifest.runsLayoutScripts) return parsed
         // 沙盒插件没声明 layoutActions 时脚本不会运行，去掉脚本动作
         return parsed.copy(
@@ -694,3 +785,14 @@ object PlayerLayoutParser {
 
 // 当前生效的播放器布局，key 为区域；没有插件布局的区域不在表里
 val LocalPlayerLayouts = staticCompositionLocalOf<Map<PlayerLayoutArea, PlayerLayoutSpec>> { emptyMap() }
+
+// 横屏独立读取宽屏区域的起始 API 次版本
+private const val SEPARATE_LANDSCAPE_API_MINOR = 10
+
+// 1.10 以前的插件横屏沿用竖屏布局；新插件横竖屏各自选择，横屏未选插件即内置
+fun Map<PlayerLayoutArea, PlayerLayoutSpec>.androidPlayerLayout(isLandscape: Boolean): PlayerLayoutSpec? {
+    val portrait = get(PlayerLayoutArea.ANDROID_FULL_PLAYER)
+    if (!isLandscape) return portrait
+    if (portrait != null && !portrait.separateLandscape) return portrait
+    return get(PlayerLayoutArea.ANDROID_FULL_PLAYER_WIDE)?.takeIf { it.separateLandscape }
+}

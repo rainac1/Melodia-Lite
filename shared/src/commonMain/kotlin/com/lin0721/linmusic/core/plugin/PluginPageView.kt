@@ -76,9 +76,9 @@ object PluginBinding {
         return manifest.file(value)?.let(PluginImageSource::Asset)
     }
 
-    // 封面由图片加载器直接请求，插件只能用清单允许的域名，其他地址返回空字符串
+    // 封面由图片加载器直接请求，沙盒插件同样只能用清单允许的域名，其他地址返回空字符串
     fun cover(manifest: PluginManifest, value: String): String =
-        if (image(manifest, value) is PluginImageSource.Remote) value else ""
+        if (manifest.kind == PluginKind.NATIVE || image(manifest, value) is PluginImageSource.Remote) value else ""
 
     fun tracks(manifest: PluginManifest, value: JsonElement?): List<PluginTrack> = (value as? JsonArray).orEmpty().mapNotNull { element ->
         val obj = element as? JsonObject ?: return@mapNotNull null
@@ -104,7 +104,10 @@ interface PluginPageUi {
 
 // 页面运行所需的宿主操作
 class PluginPageHost(private val runtime: PluginRuntime, private val api: PluginHostApi) {
-    private fun hasAction(pluginId: String, name: String): Boolean =
+    private fun nativeAction(pluginId: String, name: String): ActionExtension? =
+        runtime.registry.get(ExtensionPoints.ACTION).firstOrNull { it.pluginId == pluginId && it.localId == name }?.value
+
+    private fun hasAction(pluginId: String, name: String): Boolean = nativeAction(pluginId, name) != null ||
         "${PluginPrelude.KIND_ACTION}:$name" in runtime.status.value[pluginId]?.registrations.orEmpty()
 
     fun state(pluginId: String, pageId: String): JsonObject =
@@ -115,7 +118,8 @@ class PluginPageHost(private val runtime: PluginRuntime, private val api: Plugin
     val statuses get() = runtime.status
 
     suspend fun action(pluginId: String, name: String, args: JsonElement = JsonNull): Boolean =
-        runtime.invoke(pluginId, PluginPrelude.KIND_ACTION, name, args, PluginRuntime.ACTION_TIMEOUT_MS) != null
+        nativeAction(pluginId, name)?.run(args)
+            ?: (runtime.invoke(pluginId, PluginPrelude.KIND_ACTION, name, args, PluginRuntime.ACTION_TIMEOUT_MS) != null)
 
     fun canOpen(pluginId: String, pageId: String): Boolean = hasAction(pluginId, "open:$pageId")
 

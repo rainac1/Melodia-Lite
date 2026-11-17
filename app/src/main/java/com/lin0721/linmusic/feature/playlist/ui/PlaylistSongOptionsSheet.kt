@@ -7,15 +7,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.HeartBroken
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +41,8 @@ import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MelodiaColors
 import com.lin0721.linmusic.core.ui.theme.MelodiaSpacing
+import com.lin0721.linmusic.feature.listentogether.ui.ListenTogetherViewModel
+import org.koin.androidx.compose.koinViewModel
 
 // ────────────────────────────────────────────────────────────────────────────
 // 歌曲"更多操作"弹层（下一首播放/喜欢/收藏到歌单/歌手/专辑）
@@ -67,6 +73,8 @@ fun PlaylistSongOptionsSheet(
     onDownloadClick: ((Track) -> Unit)? = null,
     // 仅今天的日推传入，菜单才出现“减少推荐”
     onReduceRecommend: ((Track) -> Unit)? = null,
+    // 统一分享入口（打开分享卡片页，非网易云歌曲不展示好友快发条）
+    onShareClick: ((Track) -> Unit)? = null,
     // 额外操作项
     extraOptions: @Composable ColumnScope.() -> Unit = {}
 ) {
@@ -147,6 +155,19 @@ fun PlaylistSongOptionsSheet(
                     }
                 )
 
+                val listenTogether: ListenTogetherViewModel = koinViewModel()
+                val roomState by listenTogether.state.collectAsState()
+                if (roomState.active && track.id > 0L) {
+                    OptionRow(
+                        icon = Icons.Default.Group,
+                        text = "添加到一起听队列",
+                        onClick = {
+                            onDismiss()
+                            listenTogether.addToRoomQueue(listOf(track.id)) { ToastManager.showToast(it) }
+                        }
+                    )
+                }
+
                 val likeIcon = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder
                 val likeIconTint = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 val likeText = if (isLiked) "取消喜欢" else "喜欢"
@@ -179,6 +200,17 @@ fun PlaylistSongOptionsSheet(
                         }
                     }
                 )
+
+                if (onShareClick != null) {
+                    OptionRow(
+                        icon = Icons.Default.Share,
+                        text = "分享",
+                        onClick = {
+                            onDismiss()
+                            onShareClick(track)
+                        }
+                    )
+                }
 
                 if (onDownloadClick != null) {
                     OptionRow(

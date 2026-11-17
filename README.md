@@ -13,6 +13,8 @@
 > - 删除播放器分享卡片、原生插件 API 与桌面插件布局
 > - 后台停止预取、漫游、响度分析、边听边存与封面预载，降低进度轮询与状态落盘频率
 >
+> 为了后续低成本跟进上游，代码结构与共享层尽量与上游保持一致，只删除上述功能在 Android 端的实际实现。已跟进上游 **v2.3.0**：多账户、私信/消息页、一起听、私人FM、外链识别、通知栏按钮自定义、界面精简开关、预见式返回等功能均随上游合入。
+>
 > 这些改动会带来功能缺失和与上游行为不一致，不适合需要桌面端、歌词或完整插件能力的场景。上游项目请以原仓库为准。
 
 [![GitHub Release](https://img.shields.io/github/v/release/rinchao0721/Melodia?style=flat-square&color=blue)](https://github.com/rinchao0721/Melodia/releases)
@@ -20,7 +22,7 @@
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.x-purple?style=flat-square)](https://kotlinlang.org)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
-[插件格式](docs/plugin-format.md) · [皮肤格式](docs/skin-format.md) · [插件目录](docs/plugin-catalog.md)
+[插件格式](docs/plugin-format.md) · [皮肤格式](docs/skin-format.md) · [插件目录](docs/plugin-catalog.md) · [功耗说明](docs/power-saving.md)
 </div>
 
 ---

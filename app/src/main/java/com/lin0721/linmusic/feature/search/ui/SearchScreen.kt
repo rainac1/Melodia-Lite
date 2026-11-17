@@ -58,7 +58,8 @@ fun SearchScreen(
     onArtistClick: (id: Long) -> Unit = {},
     onRadioClick: (id: Long) -> Unit = {},
     onPlaylistCategoryClick: (category: String) -> Unit = {},
-    onOpenRecognition: () -> Unit = {}
+    onOpenRecognition: () -> Unit = {},
+    onNavigateToPrivateChat: (Long) -> Unit = {}
 ) {
     val motion = LocalUiMotion.current
     val discoveryState by viewModel.discoveryState.collectAsStateWithLifecycle()
@@ -107,8 +108,8 @@ fun SearchScreen(
         viewModel.cancelSearch()
     }
 
-    // 网易返回的真实推荐词，仅用于兜底触发搜索；未成功加载时为 null，不能拿占位文案当关键词去搜
-    val remoteDefaultKeyword = (discoveryState as? DiscoveryUiState.Success)?.defaultKeyword
+    // 网易返回的真实推荐词，仅用于兜底触发搜索；未加载或已关闭推荐词时为 null，不能拿占位文案当关键词去搜
+    val remoteDefaultKeyword = (discoveryState as? DiscoveryUiState.Success)?.defaultKeyword?.takeIf { it.isNotBlank() }
     val placeholder = remoteDefaultKeyword ?: "搜索你想听的"
 
     Column(
@@ -164,10 +165,26 @@ fun SearchScreen(
                     )
                     SearchMode.Typing -> SearchTypingPanel(
                         query = inputState.query,
+                        linkHit = inputState.currentLinkHit,
                         suggestions = inputState.currentSuggestions,
                         history = history,
                         onSubmitKeyword = viewModel::searchWithKeyword,
                         onFillQuery = viewModel::updateQuery,
+                        onOpenLinkTarget = { target, cachedTrack ->
+                            focusManager.clearFocus()
+                            when (target) {
+                                is com.lin0721.linmusic.core.deeplink.SongLinkTarget.Song ->
+                                    viewModel.playLinkSong(target.id, cachedTrack)
+                                is com.lin0721.linmusic.core.deeplink.SongLinkTarget.Playlist ->
+                                    onPlaylistClick(target.id, target.isAlbum)
+                                is com.lin0721.linmusic.core.deeplink.SongLinkTarget.Artist ->
+                                    onArtistClick(target.id)
+                            }
+                        },
+                        onEnqueueLinkNext = { songId, cachedTrack ->
+                            focusManager.clearFocus()
+                            viewModel.enqueueLinkSongNext(songId, cachedTrack)
+                        },
                         onArtistClick = onArtistClick,
                         onAlbumClick = { id -> onPlaylistClick(id, true) },
                         onRemoveHistory = viewModel::removeHistory,
@@ -210,6 +227,8 @@ fun SearchScreen(
             }
         }
 
+        var shareTarget by remember { mutableStateOf<Pair<Track, Boolean>?>(null) }
+
         optionsTrack?.let { track ->
             PlaylistSongOptionsSheet(
                 track = track,
@@ -224,7 +243,8 @@ fun SearchScreen(
                 },
                 onArtistClick = onArtistClick,
                 onAlbumClick = { id -> onPlaylistClick(id, true) },
-                onRequireLogin = { showLoginSheet = true }
+                onRequireLogin = { showLoginSheet = true },
+                onShareClick = { shareTarget = it to (it.id > 0L) }
             )
         }
 
@@ -246,6 +266,7 @@ fun SearchScreen(
                 showLikeOption = false,
                 showArtistOption = false,
                 showAlbumOption = false,
+                onShareClick = { shareTarget = it to false },
                 extraOptions = {
                     OptionRow(
                         icon = Icons.Default.Search,
@@ -256,6 +277,15 @@ fun SearchScreen(
                         }
                     )
                 }
+            )
+        }
+
+        shareTarget?.let { (track, isNetease) ->
+            com.lin0721.linmusic.feature.player.share.TrackShareCardSheet(
+                track = track,
+                isNetease = isNetease,
+                onDismiss = { shareTarget = null },
+                onNavigateToPrivateChat = onNavigateToPrivateChat
             )
         }
 

@@ -5,13 +5,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lin0721.linmusic.core.auth.UserPreferences
 import com.lin0721.linmusic.core.auth.UserProfile
-import com.lin0721.linmusic.core.download.DownloadTrackInfo
 import com.lin0721.linmusic.core.download.SongDownloader
+import com.lin0721.linmusic.core.download.recognition.DownloadRecognizer
+import com.lin0721.linmusic.core.download.recognition.toRecognitionTarget
+import com.lin0721.linmusic.core.download.toDownloadTrackInfo
 import com.lin0721.linmusic.core.download.toToastMessage
-import com.lin0721.linmusic.core.download.yearFromEpochMillis
 import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.offline.OfflinePlayability
+import com.lin0721.linmusic.core.auth.LoginSyncResult
 import com.lin0721.linmusic.core.auth.SyncProfileAfterLoginUseCase
 import com.lin0721.linmusic.core.player.PlaySource
 import com.lin0721.linmusic.core.songlike.LoadLikedSongIdsUseCase
@@ -90,7 +92,8 @@ class PlaylistViewModel(
     private val offlinePlayability: OfflinePlayability,
     private val trackBatchActions: TrackBatchActionsDelegate,
     private val externalStore: PlaylistExternalTrackStore,
-    private val pluginContent: PluginContent
+    private val pluginContent: PluginContent,
+    private val downloadRecognizer: DownloadRecognizer
 ) : ViewModel() {
 
     private var allRecommendedTracks = listOf<Track>()
@@ -168,8 +171,23 @@ class PlaylistViewModel(
     private val _isSavingInfo = MutableStateFlow(false)
     val isSavingInfo: StateFlow<Boolean> = _isSavingInfo.asStateFlow()
 
+    // 已比对过本地文件的曲目，分页补全时只比对新增部分
+    private val recognizedTrackIds = HashSet<Long>()
+
     init {
         loadLikedSongIds()
+        observeTracksForLocalFiles()
+    }
+
+    // 曲目加载后把本地已有的同名文件补登记为已下载
+    private fun observeTracksForLocalFiles() {
+        viewModelScope.launch(Dispatchers.Default) {
+            _uiState.collect { state ->
+                val tracks = (state as? PlaylistUiState.Success)?.playlist?.tracks ?: return@collect
+                val fresh = tracks.filter { it.id > 0 && recognizedTrackIds.add(it.id) }
+                if (fresh.isNotEmpty()) downloadRecognizer.recognize(fresh.map { it.toRecognitionTarget() })
+            }
+        }
     }
 
     fun loadLikedSongIds() {
@@ -611,9 +629,13 @@ class PlaylistViewModel(
 
     fun handleLoginSuccess(cookies: String) {
         viewModelScope.launch {
-            _toastEvent.emit("登录成功，正在同步数据...")
-            if (syncProfileAfterLoginUseCase(cookies) != null) {
-                loadLikedSongIds()
+            when (syncProfileAfterLoginUseCase.syncAccount(cookies)) {
+                is LoginSyncResult.Success -> {
+                    _toastEvent.emit("登录成功，正在同步数据...")
+                    loadLikedSongIds()
+                }
+                LoginSyncResult.LimitReached -> _toastEvent.emit("最多只能登录 5 个账户")
+                LoginSyncResult.Failed -> _toastEvent.emit("登录失败，会话无效或网络异常，请重试")
             }
         }
     }
@@ -1270,13 +1292,7 @@ class PlaylistViewModel(
                 viewModelScope.launch { _toastEvent.emit("没有可下载的歌曲") }
                 return@withAllTracks
             }
-            val downloadTracks = tracks.map { track ->
-                DownloadTrackInfo(
-                    track.id, track.name, track.ar.joinToString("/") { it.name },
-                    track.al.name, track.al.picUrl.takeIf { it.isNotBlank() },
-                    yearFromEpochMillis(track.publishTime)
-                )
-            }
+            val downloadTracks = tracks.map { it.toDownloadTrackInfo() }
             viewModelScope.launch {
                 val result = songDownloadManager.enqueueBatch(
                     downloadTracks, level, batchTag = "playlist_$playlistId", batchLabel = playlistName
@@ -1292,14 +1308,7 @@ class PlaylistViewModel(
             viewModelScope.launch { _toastEvent.emit("外部平台歌曲暂不支持下载") }
             return
         }
-        val downloadTrack = DownloadTrackInfo(
-            track.id,
-            track.name,
-            track.ar.joinToString("/") { it.name },
-            track.al.name,
-            track.al.picUrl.takeIf { it.isNotBlank() },
-            yearFromEpochMillis(track.publishTime)
-        )
+        val downloadTrack = track.toDownloadTrackInfo()
         songDownloadManager.enqueueSingle(downloadTrack, level)
         viewModelScope.launch { _toastEvent.emit("已加入下载队列") }
     }
