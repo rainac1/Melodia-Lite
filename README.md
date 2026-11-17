@@ -123,17 +123,20 @@ Repository 边界统一产出 Kotlin `Result<T>`，异常类型抽象为领域�
 
 ### 常用命令
 
+> 版本号没有默认值：`releaseVersionName` 与 `releaseVersionCode` 必须通过 `-P` 显式传入，
+> 缺失时 Gradle 会在配置阶段直接失败。
+
 - **Android 调试构建**：
   ```bash
-  ./gradlew :app:assembleDebug
+  ./gradlew :app:assembleDebug -PreleaseVersionName=2.3.0-powersaving.1 -PreleaseVersionCode=2030001
   ```
 - **运行单元测试**：
   ```bash
-  ./gradlew :app:testDebugUnitTest
+  ./gradlew :app:testDebugUnitTest -PreleaseVersionName=2.3.0-powersaving.1 -PreleaseVersionCode=2030001
   ```
 - **构建 Android Release 安装包**：
   ```bash
-  ./gradlew :app:assembleRelease
+  ./gradlew :app:assembleRelease -PreleaseVersionName=2.3.0-powersaving.1 -PreleaseVersionCode=2030001
   ```
 
 ### 混淆与签名说明

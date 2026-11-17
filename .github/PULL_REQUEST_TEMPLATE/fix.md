@@ -27,8 +27,8 @@ dev 验证稳定后再由 dev 合入 main 发正式版，请勿直接向 main �
 
 已执行（与 CI 保持一致，勾选已通过项）：
 
-- [ ] `./gradlew :app:testDebugUnitTest`
-- [ ] `./gradlew :app:assembleRelease`
+- [ ] `./gradlew :app:testDebugUnitTest -PreleaseVersionName=0.0.0-local -PreleaseVersionCode=1`
+- [ ] `./gradlew :app:assembleRelease -PreleaseVersionName=0.0.0-local -PreleaseVersionCode=1`
 
 复现与验证：
 

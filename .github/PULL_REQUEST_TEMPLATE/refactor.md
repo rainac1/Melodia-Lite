@@ -27,8 +27,8 @@
 
 已执行（与 CI 保持一致，勾选已通过项）：
 
-- [ ] `./gradlew :app:testDebugUnitTest`
-- [ ] `./gradlew :app:assembleRelease`
+- [ ] `./gradlew :app:testDebugUnitTest -PreleaseVersionName=0.0.0-local -PreleaseVersionCode=1`
+- [ ] `./gradlew :app:assembleRelease -PreleaseVersionName=0.0.0-local -PreleaseVersionCode=1`
 
 手动回归的场景：
 

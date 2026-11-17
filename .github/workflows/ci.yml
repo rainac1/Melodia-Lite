@@ -27,12 +27,13 @@ jobs:
       - name: 配置 Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # 版本号必须显式传入；CI 用固定占位版本，仅用于验证编译与 R8
       - name: 单元测试
-        run: ./gradlew :app:testDebugUnitTest --no-daemon
+        run: ./gradlew :app:testDebugUnitTest --no-daemon -PreleaseVersionName=0.0.0-ci -PreleaseVersionCode=1
 
       # release 构建同时验证 R8 规则：接口或序列化器被误裁时此步会失败
       - name: Release 构建（含 R8）
-        run: ./gradlew :app:assembleRelease --no-daemon
+        run: ./gradlew :app:assembleRelease --no-daemon -PreleaseVersionName=0.0.0-ci -PreleaseVersionCode=1
 
       - name: 上传测试报告
         if: always()

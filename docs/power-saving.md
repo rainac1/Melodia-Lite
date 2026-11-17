@@ -42,10 +42,15 @@
 ## 验证
 
 ```bash
-./gradlew :app:compileDebugKotlin
-./gradlew :app:testDebugUnitTest
-./gradlew :app:assembleDebug
+./gradlew :app:compileDebugKotlin \
+  -PreleaseVersionName=2.3.0-powersaving.1 -PreleaseVersionCode=2030001
+./gradlew :app:testDebugUnitTest \
+  -PreleaseVersionName=2.3.0-powersaving.1 -PreleaseVersionCode=2030001
+./gradlew :app:assembleDebug \
+  -PreleaseVersionName=2.3.0-powersaving.1 -PreleaseVersionCode=2030001
 ```
+
+版本号没有默认值，缺失时 Gradle 会在配置阶段直接失败；`releaseVersionCode` 必须是正整数。
 
 安装后可用以下命令抽查：
 

@@ -1,8 +1,11 @@
 # Release 签名配置
 
 仓库根目录内置 `melodia-release.jks`，**别名与密码均为 `android`**，作为 CI 和本地
-默认的 release 签名：克隆仓库后直接 `./gradlew assembleRelease` 就是正式签名包，
+默认的 release 签名：配置好签名后直接 `./gradlew assembleRelease -P...` 就是正式签名包，
 不需要配置任何 secret、不需要 `local.properties`。
+
+版本号没有默认值：`releaseVersionName` 与 `releaseVersionCode` 必须通过 `-P` 显式传入，
+缺失时 Gradle 会在配置阶段直接失败，避免误用默认版本发版。
 
 `app/build.gradle.kts` 的取值顺序（`signingValue()`）：
 
@@ -18,16 +21,18 @@
 ## 本地打包
 
 ```bash
-./gradlew assembleRelease
+./gradlew assembleRelease \
+  -PreleaseVersionName=2.3.0-powersaving.1 \
+  -PreleaseVersionCode=2030001
 ```
 
-产出的包在 `app/build/outputs/apk/release/`，文件名形如 `Melodia-v2.1.1-rainac.1-release.apk`。
+产出的包在 `app/build/outputs/apk/release/`，文件名形如 `Melodia-v2.3.0-powersaving.1-release.apk`。
 确认实际签名者：
 
 ```bash
-keytool -printcert -jarfile app/build/outputs/apk/release/Melodia-v2.1.1-rainac.1-release.apk
+keytool -printcert -jarfile app/build/outputs/apk/release/Melodia-v2.3.0-powersaving.1-release.apk
 # 或（Android SDK build-tools）
-apksigner verify --print-certs app/build/outputs/apk/release/Melodia-v2.1.1-rainac.1-release.apk
+apksigner verify --print-certs app/build/outputs/apk/release/Melodia-v2.3.0-powersaving.1-release.apk
 ```
 
 内置证书主体是 `CN=Melodia, OU=Melodia, O=Melodia, L=Beijing, ST=Beijing, C=CN`，

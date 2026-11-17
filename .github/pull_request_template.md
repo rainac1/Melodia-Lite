@@ -24,8 +24,8 @@
 
 ## 测试与验证
 
-- [ ] `./gradlew :app:testDebugUnitTest`
-- [ ] `./gradlew :app:assembleRelease`
+- [ ] `./gradlew :app:testDebugUnitTest -PreleaseVersionName=0.0.0-local -PreleaseVersionCode=1`
+- [ ] `./gradlew :app:assembleRelease -PreleaseVersionName=0.0.0-local -PreleaseVersionCode=1`
 
 ## 风险与影响范围
 

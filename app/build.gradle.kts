@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.android.application)
@@ -34,6 +35,21 @@ val hasReleaseSigning = releaseStoreFile != null &&
         releaseKeyPassword != null &&
         rootProject.file(releaseStoreFile).exists()
 
+// 版本号不允许有默认值：必须显式传入，缺失时在配置阶段直接失败，避免误用默认版本发布。
+// 例：./gradlew :app:assembleDebug -PreleaseVersionName=2.3.0-powersaving.1 -PreleaseVersionCode=2030001
+fun requiredVersionProperty(name: String): String =
+    (project.findProperty(name) as String?)?.trim()?.takeIf { it.isNotEmpty() }
+        ?: throw GradleException(
+            "缺少 -P$name=…。构建必须显式指定版本号，例如：\n" +
+                "  ./gradlew :app:assembleDebug -PreleaseVersionName=2.3.0-powersaving.1 -PreleaseVersionCode=2030001"
+        )
+
+val releaseVersionName = requiredVersionProperty("releaseVersionName")
+val releaseVersionCode = requiredVersionProperty("releaseVersionCode").toIntOrNull()?.takeIf { it > 0 }
+    ?: throw GradleException(
+        "releaseVersionCode 必须是正整数，当前值：${project.findProperty("releaseVersionCode")}"
+    )
+
 android {
     namespace = "com.lin0721.linmusic"
     compileSdk {
@@ -46,9 +62,8 @@ android {
         applicationId = "com.lin0721.linmusic"
         minSdk = 26
         targetSdk = 36
-        // CI 打 tag 发布时通过 -PreleaseVersionCode/-PreleaseVersionName 覆盖，本地构建使用 fork 默认版本
-        versionCode = (project.findProperty("releaseVersionCode") as String?)?.toIntOrNull() ?: 2010199
-        versionName = (project.findProperty("releaseVersionName") as String?) ?: "2.1.1-rainac.1"
+        versionCode = releaseVersionCode
+        versionName = releaseVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
