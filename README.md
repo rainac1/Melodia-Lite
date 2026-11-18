@@ -5,17 +5,17 @@
 
 > **Fork 说明**
 >
-> 本仓库是 Melodia 的 **Android 功耗优化激进修改版**。目标不是与上游保持功能对等，而是在 Android 端尽可能减少后台唤醒、常驻渲染和无效网络请求，因此删除了大量上游功能与平台支持：
+> 本仓库（`rainac1/Melodia-Lite`）是 Melodia 的 **Android 功耗优化激进精简版**。项目目标并非与上游保持功能对等，而是在 Android 端尽可能减少后台唤醒、常驻渲染与无效网络请求，因此移除了部分平台支持与高频渲染特性：
 >
-> - 只保留 Android 端，删除桌面端模块、桌面源集、桌面测试、Windows 打包与官网
-> - 删除歌词运行时与 UI、Karaoke 逐帧渲染、悬浮歌词、外部歌词源、歌词分享与歌词设置
-> - 删除播放器动态背景与逐帧 mesh 动画，改为静态渐变
-> - 删除播放器分享卡片、原生插件 API 与桌面插件布局
-> - 后台停止预取、漫游、响度分析、边听边存与封面预载，降低进度轮询与状态落盘频率
+> - **仅保留 Android 端**：删除桌面端模块、桌面源集与测试、Windows 打包及官网站点
+> - **移除歌词系统**：删除歌词运行时与 UI、Karaoke 逐帧渲染、悬浮歌词、外部歌词源、播放器歌词分享入口与歌词设置
+> - **静态播放页**：删除播放器动态背景与逐帧 Mesh 动画，改为静态渐变背景
+> - **精简原生插件**：移除 `plugin-api` 原生插件实现（共享层保留 `NativePluginHost` 接口与被动配置模型，Android 端注入为 `null`）
+> - **收敛后台调度**：后台停止下一首预取、相似漫游、响度分析与边听边存调度，降低进度轮询与状态落盘频率，并拉长播放器与 AudioTrack 缓冲
 >
-> 为了后续低成本跟进上游，代码结构与共享层尽量与上游保持一致，只删除上述功能在 Android 端的实际实现。已跟进上游 **v2.3.0**：多账户、私信/消息页、一起听、私人FM、外链识别、通知栏按钮自定义、界面精简开关、预见式返回等功能均随上游合入。
+> 为控制后续跟进上游的维护成本，共享层与代码结构尽量与上游保持一致，仅移除上述功能在 Android 端的主动实现（详细策略与参数见 [功耗说明](docs/power-saving.md)）。当前已合入上游 **v2.3.0**：多账户、私信/消息页、一起听、私人 FM、外链识别、通知栏按钮自定义、界面精简开关、预见式返回、按需渲染的歌曲/私信分享卡片等能力均已同步。
 >
-> 这些改动会带来功能缺失和与上游行为不一致，不适合需要桌面端、歌词或完整插件能力的场景。上游项目请以原仓库为准。
+> 这些取舍会导致部分功能缺失或与上游行为不同，不适合需要桌面端、歌词展示或原生插件扩展的场景。完整功能请以上游原仓库为准。
 
 [![GitHub Release](https://img.shields.io/github/v/release/rinchao0721/Melodia?style=flat-square&color=blue)](https://github.com/rinchao0721/Melodia/releases)
 [![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-green?style=flat-square)](https://github.com/rinchao0721/Melodia/releases)
@@ -53,11 +53,12 @@
 
 ## 下载与反馈
 
-- **安装包下载**：前往 [GitHub Releases](https://github.com/rinchao0721/Melodia/releases) 获取最新预编译 APK
-- **蓝奏云**：https://wware.lanzn.com/b01gic8ioj 密码:cem2
-- **缺陷与建议**：[GitHub Issues](https://github.com/rinchao0721/Melodia/issues)
-- **交流 QQ 群也可以下载**：`331832966`
-- **或者tg**：https://t.me/+OZRD58lnMy85NjE0
+- **本 Fork 构建**：可在仓库的 GitHub Actions 手动运行 `Release` 工作流产出签名 APK，或按下方说明本地编译（详见 [RELEASE_SIGNING.md](RELEASE_SIGNING.md)）
+- **上游原版安装包**：前往上游 [GitHub Releases](https://github.com/rinchao0721/Melodia/releases) 获取（以下为上游社区与反馈渠道）
+- **上游蓝奏云**：https://wware.lanzn.com/b01gic8ioj 密码:cem2
+- **上游缺陷与建议**：[GitHub Issues](https://github.com/rinchao0721/Melodia/issues)
+- **上游交流 QQ 群**：`331832966`
+- **上游 Telegram**：https://t.me/+OZRD58lnMy85NjE0
 
 ---
 
@@ -90,10 +91,10 @@ shared/src/
 
 app/src/main/java/com/lin0721/linmusic/
 ├── MelodiaApplication.kt        # 应用程序入口：Koin 依赖注入初始化与 Coil 预热
-├── MainActivity.kt              # 单 Activity 架构：系统窗口适应与悬浮窗权限引导
+├── MainActivity.kt              # 单 Activity 架构：系统栏适配、主题/缩放、外链与剪贴板识别、通知权限请求
 ├── MelodiaApp.kt                # 顶层组合：导航骨架编排与播放器图层联动
 ├── MelodiaNavHost.kt            # 核心路由分发与平滑转场动画配置
-├── MelodiaOverlays.kt           # 全屏播放器底栏、底部弹窗与全局反馈浮层
+├── MelodiaOverlays.kt           # 全屏播放器、迷你条/底栏、下载横幅与全局浮层
 ├── MelodiaNavigationState.kt    # 自定义导航回退栈管理与参数上下文恢复
 ├── MelodiaPlayerSheetState.kt   # 全屏播放器展开/收起手势状态机
 ├── MelodiaSidebarState.kt       # 侧边栏抽屉滑动状态机
@@ -142,8 +143,8 @@ Repository 边界统一产出 Kotlin `Result<T>`，异常类型抽象为领域�
 ### 混淆与签名说明
 
 - **代码裁剪与混淆**：`release` 构建已开启 R8 压缩与混淆保护。项目对 Retrofit 接口与 `@Serializable` 数据传输类配置了显式 Keep 规则，确保混淆后的运行安全。
-- **签名机制**：签名材料从版本控制外部注入（读取 `local.properties` 或 CI 环境变量）。若未配置正式签名，将自动回退为 Debug 签名，确保本地可编译出可运行的 APK。完整签名与自动化发版配置请参阅 [RELEASE_SIGNING.md](RELEASE_SIGNING.md)。
-- **CI 流水线**：向 `main` 分支推送或提交 PR 时自动运行 Android 单元测试与 Release 构建验证；推送版本 Tag 时打 Android 正式签名 APK 并发布到 GitHub Release，详见 [RELEASE_SIGNING.md](RELEASE_SIGNING.md)。
+- **签名机制**：仓库根目录内置 `melodia-release.jks`（别名与密码均为 `android`）作为本地与 CI 默认的 Release 签名，开箱即用；可通过 `local.properties` 或 CI 环境变量覆盖（自定义 keystore 需补全四项配置，缺项时退回 Debug 签名）。完整签名与覆盖规则请参阅 [RELEASE_SIGNING.md](RELEASE_SIGNING.md)。
+- **CI 与发布流水线**：已关闭 `push` 自动触发。`CI` 工作流仅在向 `main` 提交 PR 或手动触发时运行 Android 单元测试与 Release（R8）构建验证；`Release` 工作流仅支持手动触发（传入版本号后打出正式签名 APK 并作为 Workflow Artifact 保留，不会自动创建 GitHub Release），详见 [RELEASE_SIGNING.md](RELEASE_SIGNING.md)。
 
 ---
 
