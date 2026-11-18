@@ -36,7 +36,7 @@ keytool -printcert -jarfile app/build/outputs/apk/release/Melodia-v2.3.0-powersa
 apksigner verify --print-certs app/build/outputs/apk/release/Melodia-v2.3.0-powersaving.1-release.apk
 ```
 
-内置证书固定信息如下：
+内置证书固定信息如下（亦可通过 `keytool -list -v -keystore melodia-release.jks -storepass android` 直接查看）：
 
 - **Subject DN**：`CN=Melodia, OU=Melodia, O=Melodia, L=Beijing, ST=Beijing, C=CN`
 - **SHA-256 指纹**：`5C:52:18:91:02:D5:AC:7A:78:7E:CC:BE:9F:DC:FC:A2:7F:94:71:3B:09:25:09:EA:B2:CE:1E:1E:96:91:3B:AD`
@@ -51,7 +51,7 @@ apksigner verify --print-certs app/build/outputs/apk/release/Melodia-v2.3.0-powe
   - 正式版：`MAJOR.MINOR.PATCH`（如 `2.3.0`），对应 `versionCode` 末两位固定为 `99`；
   - 预发布 / 衍生版：`MAJOR.MINOR.PATCH-kind.N`（如 `2.3.0-powersaving.1`），`kind` 须以小写字母开头，`N` 取值 `0~98`（写入 `versionCode` 末两位，避免与正式版 `99` 冲突）。
 - **签名与校验**：Runner 在 checkout 时直接获取内置 `melodia-release.jks`，**无需配置任何 Repository Secret**。构建完成后会执行「校验正式签名生效」步骤，通过 `apksigner verify --print-certs` 检查证书 DN；一旦检测到 `Android Debug`，流水线会立即终止。
-- **产物输出**：签名 APK 作为 Workflow Artifact（名称为 `android`，保留 `7` 天）上传，**不会自动创建 GitHub Release**；`git tag` 仅作版本记录用途。
+- **产物输出**：签名 APK 作为 Workflow Artifact 上传（可在 **Actions → 对应执行记录 → Artifacts → `android`** 下载，保留 `7` 天），**不会自动创建 GitHub Release**；`git tag` 仅作版本记录用途。
 
 > 另外，`.github/workflows/ci.yml` 也已关闭 `push` 触发，仅在向 `main` 提交 PR 或手动运行时执行单元测试与 Release（R8）构建验证。
 

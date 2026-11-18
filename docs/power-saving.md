@@ -42,12 +42,15 @@
 | 播客进度采样（`PodcastProgressTracker`） | `5s` | 降低播客进度记录与持久化频率 |
 | 外部打断恢复兜底轮询（`ExternalInterruptionResumeController`） | `3s` | 主要依赖系统 `AudioPlaybackCallback`，定时轮询仅作兜底 |
 | 应用更新检查（`MelodiaApplication`） | 前台可见后延迟 `3s` 检查 | 等待 `AppVisibility.foreground == true`，避免后台被媒体键或蓝牙拉起时触发网络唤醒 |
+| 私信未读轮询（`PrivateUnreadMonitor`） | 仅前台每 `60s` 轮询 | 随 `MelodiaApp` 生命周期 `ON_START` / `ON_STOP` 启停，退至后台即停止 |
+| 内存回收（`MelodiaApplication.onTrimMemory`） | 退至后台或低内存时清理 | 清理 Coil 内存缓存并裁剪空闲 LX 插件沙箱 |
 | 蓝牙常驻广播 | 已移除 | 移除原版 `BluetoothReceiver` 常驻 ACL 广播接收器 |
 
 ### 后台可见性收敛（`AppVisibility.foreground == false`）
 
-当应用退到后台时，`PlayerManager` 的进度轮询回调会跳过以下可能唤醒网络或 CPU 的周期性任务：
+当应用退到后台时，以下可能唤醒网络、解码器或 CPU 的任务会被跳过：
 
+- 下一首封面预载（`PlayerManager.onPlaybackStateChanged` 中的 `coverPreloader.preload`）
 - 下一首播放链接预取（`maybePrefetchNextTrackUrl`）
 - 相似漫游续播与私人 FM 预取调度（`roaming.onProgressTick` / `personalFm.onProgressTick`）
 - 自动交叉淡化预调度（`maybeScheduleAutoCrossfade`）
@@ -89,7 +92,7 @@ adb shell dumpsys alarm | grep com.lin0721
 
 - 暂停状态下无进度轮询造成的周期性唤醒
 - 后台持续播放时 CPU 唤醒控制在约 2 次/分钟以内
-- 后台播放期间无预取、响度分析或边听边存触发的额外网络请求
+- 后台播放期间无预取、封面预载、响度分析或边听边存触发的额外网络请求
 - 播放页处于静态渲染状态，无逐帧重绘开销
 
 ---

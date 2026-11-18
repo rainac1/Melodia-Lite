@@ -141,11 +141,6 @@ baselineProfile {
     saveInSrc = true
 }
 
-// Room Gradle 插件在 AGP 9 下会重复注册 copyRoomSchemas，改用 KSP 参数导出 schema
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
-}
-
 dependencies {
     implementation(project(":shared"))
     implementation(libs.androidx.core.ktx)

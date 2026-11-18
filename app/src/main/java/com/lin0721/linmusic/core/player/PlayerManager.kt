@@ -1426,7 +1426,9 @@ class PlayerManager(
         AppLogger.i(TAG, "播放状态变化: ${playbackStateName(playbackState)}")
         if (playbackState == Player.STATE_READY) {
             progress.updateDurationFromController()
-            playbackQueue.nextItemByMode()?.let { coverPreloader.preload(it.coverUrl) }
+            if (AppVisibility.foreground.value) {
+                playbackQueue.nextItemByMode()?.let { coverPreloader.preload(it.coverUrl) }
+            }
         }
         // 单曲循环由 ExoPlayer REPEAT_MODE_ONE 处理，不会到达 STATE_ENDED
         if (playbackState == Player.STATE_ENDED && playbackQueue.playMode.value != PlayMode.SINGLE_LOOP) {

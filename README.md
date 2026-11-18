@@ -11,18 +11,18 @@
 > - **移除歌词系统**：删除歌词运行时与 UI、Karaoke 逐帧渲染、悬浮歌词、外部歌词源、播放器歌词分享入口与歌词设置
 > - **静态播放页**：删除播放器动态背景与逐帧 Mesh 动画，改为静态渐变背景
 > - **精简原生插件**：移除 `plugin-api` 原生插件实现（共享层保留 `NativePluginHost` 接口与被动配置模型，Android 端注入为 `null`）
-> - **收敛后台调度**：后台停止下一首预取、相似漫游、响度分析与边听边存调度，降低进度轮询与状态落盘频率，并拉长播放器与 AudioTrack 缓冲
+> - **收敛后台调度**：后台停止下一首预取、封面预载、相似漫游、响度分析与边听边存调度，降低进度轮询与状态落盘频率，并拉长播放器与 AudioTrack 缓冲
 >
 > 为控制后续跟进上游的维护成本，共享层与代码结构尽量与上游保持一致，仅移除上述功能在 Android 端的主动实现（详细策略与参数见 [功耗说明](docs/power-saving.md)）。当前已合入上游 **v2.3.0**：多账户、私信/消息页、一起听、私人 FM、外链识别、通知栏按钮自定义、界面精简开关、预见式返回、按需渲染的歌曲/私信分享卡片等能力均已同步。
 >
 > 这些取舍会导致部分功能缺失或与上游行为不同，不适合需要桌面端、歌词展示或原生插件扩展的场景。完整功能请以上游原仓库为准。
 
-[![GitHub Release](https://img.shields.io/github/v/release/rinchao0721/Melodia?style=flat-square&color=blue)](https://github.com/rinchao0721/Melodia/releases)
-[![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-green?style=flat-square)](https://github.com/rinchao0721/Melodia/releases)
+[![Upstream Release](https://img.shields.io/github/v/release/rinchao0721/Melodia?label=upstream&style=flat-square&color=blue)](https://github.com/rinchao0721/Melodia/releases)
+[![Platform](https://img.shields.io/badge/Platform-Android%208.0%2B-green?style=flat-square)](RELEASE_SIGNING.md)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.x-purple?style=flat-square)](https://kotlinlang.org)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
-[插件格式](docs/plugin-format.md) · [皮肤格式](docs/skin-format.md) · [插件目录](docs/plugin-catalog.md) · [功耗说明](docs/power-saving.md)
+[功耗说明](docs/power-saving.md) · [签名与发版](RELEASE_SIGNING.md) · [插件格式](docs/plugin-format.md) · [皮肤格式](docs/skin-format.md) · [插件目录](docs/plugin-catalog.md)
 </div>
 
 ---
@@ -90,7 +90,7 @@ shared/src/
 └── androidMain/                 # Context 相关实现（DataStore 落盘、网络状态、音乐库偏好等）
 
 app/src/main/java/com/lin0721/linmusic/
-├── MelodiaApplication.kt        # 应用程序入口：Koin 依赖注入初始化与 Coil 预热
+├── MelodiaApplication.kt        # 应用程序入口：Koin 初始化、Coil 配置、前台可见性追踪与延迟更新检查
 ├── MainActivity.kt              # 单 Activity 架构：系统栏适配、主题/缩放、外链与剪贴板识别、通知权限请求
 ├── MelodiaApp.kt                # 顶层组合：导航骨架编排与播放器图层联动
 ├── MelodiaNavHost.kt            # 核心路由分发与平滑转场动画配置
