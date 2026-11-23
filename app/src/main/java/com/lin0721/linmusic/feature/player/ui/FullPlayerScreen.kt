@@ -54,13 +54,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.media3.common.MediaItem
 import com.lin0721.linmusic.core.download.ui.DownloadQualityPickerSheet
-import com.lin0721.linmusic.core.model.getQualityBadgeLabel
+import com.lin0721.linmusic.core.lanlink.PlaybackTarget
+import com.lin0721.linmusic.core.lanlink.RoutingPlaybackController
+import com.lin0721.linmusic.core.model.playbackQualityLabel
+import com.lin0721.linmusic.core.player.NowPlaying
+import com.lin0721.linmusic.core.player.PlaybackController
 import com.lin0721.linmusic.core.player.PlayerManager
 import com.lin0721.linmusic.core.player.normalizeFullPlayerCoverUrl
 import com.lin0721.linmusic.core.player.rememberQueueItemCoverUrl
 import com.lin0721.linmusic.core.ui.components.ArtistPickerEntry
+import com.lin0721.linmusic.core.ui.components.CollectPromptEffect
 import com.lin0721.linmusic.core.ui.components.ArtistPickerSheet
 import com.lin0721.linmusic.core.ui.components.SwipeQueueTarget
 import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
@@ -96,7 +100,7 @@ private const val PortraitFullscreenColumnFraction = 0.62f
 
 @Composable
 fun FullPlayerScreen(
-    currentTrack: MediaItem?,
+    currentTrack: NowPlaying?,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
     duration: Long,
@@ -164,7 +168,7 @@ private fun PlayerTintScope(immersive: Boolean, content: @Composable () -> Unit)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FullPlayerScreenContent(
-    currentTrack: MediaItem?,
+    currentTrack: NowPlaying?,
     isPlaying: Boolean,
     currentPositionProvider: () -> Long,
     duration: Long,
@@ -204,6 +208,9 @@ private fun FullPlayerScreenContent(
     val settingsPreferences: SettingsPreferences = koinInject()
     // 输出设备切换为 Android 专属能力，不在跨平台接口里
     val playerManager: PlayerManager = koinInject()
+    val routingController: RoutingPlaybackController = koinInject()
+    val activeTarget by routingController.activeTarget.collectAsStateWithLifecycle()
+    val remoteDeviceName = (activeTarget as? PlaybackTarget.Remote)?.peer?.deviceName
     val songDetailState by viewModel.songDetailState.collectAsStateWithLifecycle()
     val songDetail = songDetailState.songDetail
     // 大播放按钮专用：弱网缓冲期间也要立刻显示"暂停中"图标，不能等音频真正流出的 isPlaying；
@@ -211,6 +218,8 @@ private fun FullPlayerScreenContent(
     val playWhenReady by viewModel.playerManager.playWhenReady.collectAsStateWithLifecycle()
     val playContext by viewModel.playerManager.playContext.collectAsStateWithLifecycle()
     val playSource by viewModel.playerManager.playSource.collectAsStateWithLifecycle()
+    val personalFmMode by viewModel.personalFmMode.collectAsStateWithLifecycle()
+    val isPersonalFm = playContext == PlaybackController.CONTEXT_PERSONAL_FM
     val sleepTimerRemaining by viewModel.sleepTimerRemaining.collectAsStateWithLifecycle()
     val commentsState by viewModel.commentsState.collectAsStateWithLifecycle()
     val activeQuality by viewModel.activeQuality.collectAsStateWithLifecycle()
@@ -222,6 +231,7 @@ private fun FullPlayerScreenContent(
     val previousQueueItem by viewModel.playerManager.previousQueueItem.collectAsStateWithLifecycle()
     val nextQueueItem by viewModel.playerManager.nextQueueItem.collectAsStateWithLifecycle()
     var showQueueSheet by remember { mutableStateOf(false) }
+    var showPersonalFmModeSheet by remember { mutableStateOf(false) }
     var showMoreOptionsSheet by remember { mutableStateOf(false) }
     var showTimerSheet by remember { mutableStateOf(false) }
     var showCommentsSheet by remember { mutableStateOf(false) }
@@ -230,6 +240,17 @@ private fun FullPlayerScreenContent(
     val floorState by viewModel.floorState.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     var collectSongId by remember { mutableStateOf<Long?>(null) }
+    // 未收藏一键喜欢，已收藏打开加入歌单弹窗
+    val openCollectSheet: (Long) -> Unit = { songId ->
+        collectSongId = songId
+        viewModel.prepareCollectDialog(songId)
+    }
+    val onCollectButtonClick: () -> Unit = {
+        currentTrack.mediaId.toLongOrNull()?.let { songId ->
+            if (songDetailState.isLiked) openCollectSheet(songId) else viewModel.quickLike(songId)
+        }
+    }
+    CollectPromptEffect(viewModel.collectPromptEvent, openCollectSheet)
     var showOutputDeviceSheet by remember { mutableStateOf(false) }
     var showDownloadQualitySheet by remember { mutableStateOf(false) }
     var showCardEditorSheet by remember { mutableStateOf(false) }
@@ -319,6 +340,14 @@ private fun FullPlayerScreenContent(
         showDownloadQualitySheet = false
     }
 
+    BackHandler(enabled = showPersonalFmModeSheet) {
+        showPersonalFmModeSheet = false
+    }
+
+    var showQualityDetailSheet by remember { mutableStateOf(false) }
+    BackHandler(enabled = showQualityDetailSheet) {
+        showQualityDetailSheet = false
+    }
     var colorPalette by remember(currentTrack.mediaId) {
         mutableStateOf(
             PaletteMemoryCache.get(currentTrack.mediaId) ?: FallbackBackdropPalette
@@ -326,11 +355,15 @@ private fun FullPlayerScreenContent(
     }
     val colors = rememberFullPlayerColors(colorPalette)
 
-    val title = currentTrack.mediaMetadata.title?.toString() ?: ""
-    val artist = currentTrack.mediaMetadata.artist?.toString() ?: ""
-    val qualityLabel = rememberPlaybackQualityLabel(viewModel, currentTrack.mediaId, podcast.isPodcast)
+    val title = currentTrack.title
+    val artist = currentTrack.artist
+    val qualityDisplay = rememberPlaybackQualityDisplay(viewModel, currentTrack.mediaId, podcast.isPodcast)
+    val qualityLabel = qualityDisplay?.label
+    LaunchedEffect(qualityDisplay == null) {
+        if (qualityDisplay == null) showQualityDetailSheet = false
+    }
     val rawCoverUrl = normalizeFullPlayerCoverUrl(
-        currentTrack.mediaMetadata.artworkUri?.toString().orEmpty()
+        currentTrack.artworkUri.orEmpty()
     )
     val fallbackCoverUrl = currentQueueItem?.let {
         normalizeFullPlayerCoverUrl(rememberQueueItemCoverUrl(it.coverUrl, it.songId, it.localUri))
@@ -512,8 +545,10 @@ private fun FullPlayerScreenContent(
             duration = duration,
             playMode = playMode,
             connectedDevice = connectedDevice,
+            remoteDeviceName = remoteDeviceName,
             qualityLabel = qualityLabel,
-            onToggleLike = viewModel::toggleLike,
+            onQualityClick = { showQualityDetailSheet = true },
+            onToggleLike = onCollectButtonClick,
             onToggleSubscribe = viewModel::toggleSubscribe,
             onArtistClick = openSongArtist,
             onAlbumClick = openSongAlbum,
@@ -654,7 +689,7 @@ private fun FullPlayerScreenContent(
                         playMode = playMode,
                         onClose = onClose,
                         onMoreClick = { showMoreOptionsSheet = true },
-                        onToggleLike = viewModel::toggleLike,
+                        onToggleLike = onCollectButtonClick,
                         onArtistClick = openSongArtist,
                         onAlbumClick = openSongAlbum,
                         onPlaylistClick = openPlaylistSource,
@@ -666,10 +701,15 @@ private fun FullPlayerScreenContent(
                         onToggleRepeat = viewModel.playerManager::toggleRepeat,
                         onDisableRoaming = { viewModel.playerManager.disableRoaming() },
                         onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
+                        personalFmMode = personalFmMode,
+                        onPersonalFmModeClick = { showPersonalFmModeSheet = true },
+                        onTrashFm = viewModel::trashCurrentFmSong,
                         onOutputDeviceClick = { showOutputDeviceSheet = true },
                         onQueueClick = { showQueueSheet = true },
                         connectedDevice = connectedDevice,
+                        remoteDeviceName = remoteDeviceName,
                         qualityLabel = qualityLabel,
+                        onQualityClick = { showQualityDetailSheet = true },
                         baseCoverPadding = animatedCoverPadding,
                         itemGap = animatedItemGap,
                         fillGap = if (allCardsHidden) fillGap else null,
@@ -699,7 +739,8 @@ private fun FullPlayerScreenContent(
                     isPlaying = isPlaying,
                     onTogglePlay = onTogglePlay,
                     isLiked = if (podcast.isPodcast) podcast.subscribed else songDetailState.isLiked,
-                    onToggleLike = if (podcast.isPodcast) viewModel::toggleSubscribe else viewModel::toggleLike,
+                    isPodcast = podcast.isPodcast,
+                    onToggleLike = if (podcast.isPodcast) viewModel::toggleSubscribe else onCollectButtonClick,
                     backgroundColor = themedCoverBase(colors.base),
                     currentPositionProvider = currentPositionProvider,
                     duration = duration,
@@ -770,11 +811,14 @@ private fun FullPlayerScreenContent(
                         title = displayedTitle,
                         artist = displayedArtist,
                         isLiked = songDetailState.isLiked,
-                        onToggleLike = viewModel::toggleLike,
+                        onToggleLike = onCollectButtonClick,
                         onArtistClick = openSongArtist,
                         onAlbumClick = openSongAlbum,
                         podcast = podcast,
-                        onToggleSubscribe = viewModel::toggleSubscribe
+                        onToggleSubscribe = viewModel::toggleSubscribe,
+                        isPersonalFm = isPersonalFm,
+                        personalFmMode = personalFmMode,
+                        onPersonalFmModeClick = { showPersonalFmModeSheet = true }
                     )
                     ProgressSection(
                         currentPositionProvider = currentPositionProvider,
@@ -794,13 +838,17 @@ private fun FullPlayerScreenContent(
                         onDisableRoaming = { viewModel.playerManager.disableRoaming() },
                         isIntelligence = playContext == "intelligence",
                         onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
+                        isPersonalFm = isPersonalFm,
+                        onTrashFm = viewModel::trashCurrentFmSong,
                         showModeButtons = !podcast.isPodcast
                     )
                     ActionButtons(
                         onOutputDeviceClick = { showOutputDeviceSheet = true },
                         onQueueClick = { showQueueSheet = true },
                         connectedDevice = connectedDevice,
-                        qualityLabel = qualityLabel
+                        remoteDeviceName = remoteDeviceName,
+                        qualityLabel = qualityLabel,
+                        onQualityClick = { showQualityDetailSheet = true }
                     )
                 },
                 leftFraction = pluginWideLayout?.frame?.split,
@@ -866,8 +914,21 @@ private fun FullPlayerScreenContent(
             sleepTimerRemaining = sleepTimerRemaining,
             activeQuality = activeQuality,
             isPodcast = podcast.isPodcast,
+            personalFmMode = personalFmMode,
+            showPersonalFmModeSheet = showPersonalFmModeSheet,
+            qualityDetail = if (showQualityDetailSheet) qualityDisplay?.quality else null,
+            onQualityDetailDismiss = { showQualityDetailSheet = false },
             onPlayAtIndex = { viewModel.playerManager.playAtIndex(it) },
-            onRemoveAtIndex = { viewModel.playerManager.removeFromQueue(it) },
+            onRemoveSong = { songId ->
+                // 用实时队列定位，避免高速连划时拿到的下标已经过期
+                val index = viewModel.playerManager.queue.value.indexOfFirst { it.songId == songId }
+                if (index < 0) {
+                    false
+                } else {
+                    viewModel.playerManager.removeFromQueue(index)
+                    viewModel.playerManager.queue.value.none { it.songId == songId }
+                }
+            },
             onMoveQueueItem = { from, to -> viewModel.playerManager.moveInQueue(from, to) },
             onToggleShuffle = viewModel.playerManager::toggleShuffle,
             onClearQueue = {
@@ -876,6 +937,10 @@ private fun FullPlayerScreenContent(
             },
             onDisableRoaming = { viewModel.playerManager.disableRoaming() },
             onDisableIntelligence = { viewModel.playerManager.disableIntelligence() },
+            onDisablePersonalFm = viewModel::disablePersonalFm,
+            onPersonalFmModeClick = { showPersonalFmModeSheet = true },
+            onSelectPersonalFmMode = viewModel::switchPersonalFmMode,
+            onPersonalFmModeDismiss = { showPersonalFmModeSheet = false },
             onQueueDismiss = { showQueueSheet = false },
             onToggleLike = viewModel::toggleLike,
             onAlbumClick = {
@@ -914,7 +979,7 @@ private fun FullPlayerScreenContent(
                 }
             },
             onDownloadClick = { showDownloadQualitySheet = true },
-            onSaveCollection = { songId, items -> viewModel.savePlaylistCollection(songId, items) },
+            onSaveCollection = { songId, items -> viewModel.savePlaylistCollection(songId, items, silent = true) },
             onSaveNewCollection = { name, songId -> viewModel.createPlaylistAndAddSong(name, songId) },
             onCollectDismiss = { collectSongId = null },
             onMoreOptionsDismiss = { showMoreOptionsSheet = false },
@@ -1008,15 +1073,25 @@ private fun FullPlayerScreenContent(
                 onDismiss = { showCardEditorSheet = false }
             )
         }
-
     }
 }
 
-// 当前歌曲的实际音质短标签；档位按 songId 绑定，切歌瞬间旧歌的档位不会串到新歌上
+// 当前歌曲的实际音质展示快照；按 mediaId 绑定，切歌瞬间旧歌的音质不会串到新歌上
 @Composable
-fun rememberPlaybackQualityLabel(viewModel: PlayerViewModel, mediaId: String, isPodcast: Boolean): String? {
+fun rememberPlaybackQualityDisplay(
+    viewModel: PlayerViewModel,
+    mediaId: String,
+    isPodcast: Boolean
+): PlaybackQualityDisplay? {
     val showPlaybackQuality by viewModel.showPlaybackQuality.collectAsStateWithLifecycle()
-    val playbackLevel by viewModel.playerManager.playbackLevel.collectAsStateWithLifecycle()
+    val playbackQuality by viewModel.playerManager.playbackQuality.collectAsStateWithLifecycle()
     if (!showPlaybackQuality || isPodcast) return null
-    return playbackLevel?.takeIf { it.songId.toString() == mediaId }?.let { getQualityBadgeLabel(it.level) }
+    val quality = playbackQuality?.takeIf { it.mediaId == mediaId } ?: return null
+    val label = playbackQualityLabel(quality) ?: return null
+    return PlaybackQualityDisplay(quality = quality, label = label)
 }
+
+// 当前歌曲的实际音质短标签；供迷你条等仅需文案的入口复用
+@Composable
+fun rememberPlaybackQualityLabel(viewModel: PlayerViewModel, mediaId: String, isPodcast: Boolean): String? =
+    rememberPlaybackQualityDisplay(viewModel, mediaId, isPodcast)?.label

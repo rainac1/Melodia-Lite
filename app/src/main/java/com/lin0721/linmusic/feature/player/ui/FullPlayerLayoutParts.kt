@@ -68,7 +68,9 @@ class FullPlayerLayoutParts(
     val duration: Long,
     val playMode: PlayMode,
     val connectedDevice: AudioDeviceInfo?,
+    val remoteDeviceName: String? = null,
     val qualityLabel: String?,
+    val onQualityClick: (() -> Unit)? = null,
     val onToggleLike: () -> Unit,
     val onToggleSubscribe: () -> Unit,
     val onArtistClick: () -> Unit,
@@ -218,6 +220,8 @@ class FullPlayerLayoutParts(
                 connectedDevice = connectedDevice,
                 qualityLabel = qualityLabel,
                 modifier = modifier,
+                remoteDeviceName = remoteDeviceName,
+                onQualityClick = onQualityClick,
                 onSleepTimerClick = onSleepTimerClick,
                 sleepTimerActive = sleepTimerActive,
                 onCommentsClick = onCommentsClick

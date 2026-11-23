@@ -26,12 +26,14 @@ private const val FADE_STEP_MS = 16L
 // 会话播放器：内部两台 ExoPlayer 轮换，对外始终是同一个 Player。
 // 带 crossfadeMs 的切歌先在空闲播放器里静音缓冲，就绪后才接管并等功率交叉淡化；
 // 缓冲期间 setMediaItems 的 future 保持未完成，SimpleBasePlayer 用占位状态对外只报一次切歌。
-// 音量平衡的曲目增益由 extras 给出初值，播放中经 setVolume 更新并平滑过渡，淡化时作为淡入目标
+// 曲目增益由输出层 TrackGainState 施加，player.volume 只管淡化包络
 @OptIn(UnstableApi::class)
 class CrossfadePlayer(
     private val primary: ExoPlayer,
     private val secondary: ExoPlayer,
     private val audioAttributes: AudioAttributes,
+    private val primaryGainState: TrackGainState? = null,
+    private val secondaryGainState: TrackGainState? = null,
     // USB 独占期间对外报告为远程播放，系统音量键改调独占音量
     private val exclusiveVolume: ExclusiveVolumeControl? = null
 ) : ForwardingSimpleBasePlayer(primary) {
@@ -43,7 +45,7 @@ class CrossfadePlayer(
     // 静音前的独占音量，取消静音时恢复
     private var levelBeforeMute = 0
     private val exclusiveVolumeListener: () -> Unit = { handler.post { invalidateState() } }
-    private var metadataTransformer: ((MediaMetadata) -> MediaMetadata)? = null
+    private var metadataTransformer: ((String?, MediaMetadata) -> MediaMetadata)? = null
 
     private var pendingIncoming: ExoPlayer? = null
     private var pendingFuture: SettableFuture<Unit>? = null
@@ -55,13 +57,13 @@ class CrossfadePlayer(
     private var fadeStartElapsedMs = 0L
     private var fadeDurationMs = 0L
 
-    // 当前曲目增益，以及向它平滑过渡的起点
     private var trackGain = 1f
-    private var gainRampFrom = 1f
-    private var gainRampStartElapsedMs = 0L
 
     private val active: ExoPlayer
         get() = if (player === secondary) secondary else primary
+
+    private fun gainStateFor(exo: ExoPlayer): TrackGainState? =
+        if (exo === secondary) secondaryGainState else primaryGainState
 
     // 当前接管播放的 ExoPlayer，切换两台播放器时自动跟随。
     // 与其余 Player API 一样，只能从 applicationLooper 所在线程调用。
@@ -70,22 +72,12 @@ class CrossfadePlayer(
             val out = outgoing ?: return
             val progress = ((SystemClock.elapsedRealtime() - fadeStartElapsedMs).toFloat() / fadeDurationMs).coerceIn(0f, 1f)
             out.volume = CrossfadePolicy.fadeOutGain(progress, outgoingStartGain)
-            active.volume = CrossfadePolicy.fadeInGain(progress) * trackGain
+            active.volume = CrossfadePolicy.fadeInGain(progress)
             if (progress >= 1f) {
                 releaseOutgoing()
             } else {
                 handler.postDelayed(this, FADE_STEP_MS)
             }
-        }
-    }
-
-    private val gainStep = object : Runnable {
-        override fun run() {
-            // 淡化进行中由淡入曲线负责，结束后直接落在目标增益上
-            if (outgoing != null) return
-            val progress = ((SystemClock.elapsedRealtime() - gainRampStartElapsedMs).toFloat() / LoudnessPolicy.RAMP_MS).coerceIn(0f, 1f)
-            active.volume = gainRampFrom + (trackGain - gainRampFrom) * progress
-            if (progress < 1f) handler.postDelayed(this, FADE_STEP_MS)
         }
     }
 
@@ -108,7 +100,12 @@ class CrossfadePlayer(
         secondary.setPreferredAudioDevice(device)
     }
 
-    fun setMetadataTransformer(transformer: ((MediaMetadata) -> MediaMetadata)?) {
+    // Player.setVolume 不能超过 1，曲目增益单独下发
+    fun setTrackGainDb(gainDb: Double, immediate: Boolean = false) {
+        applyTrackGain(LoudnessPolicy.amplitude(gainDb), immediate)
+    }
+
+    fun setMetadataTransformer(transformer: ((String?, MediaMetadata) -> MediaMetadata)?) {
         metadataTransformer = transformer
         invalidateState()
     }
@@ -143,8 +140,9 @@ class CrossfadePlayer(
         val transformer = metadataTransformer
         if (transformer != null && !base.timeline.isEmpty) {
             val activeIndex = active.currentMediaItemIndex
+            val activeMediaId = active.currentMediaItem?.mediaId
             val transformedTimeline = TransformedTimeline(base.timeline, activeIndex, transformer)
-            val transformedMetadata = transformer(base.currentMetadata)
+            val transformedMetadata = transformer(activeMediaId, base.currentMetadata)
             builder.setPlaylist(transformedTimeline, base.currentTracks, transformedMetadata)
         }
         return builder.build()
@@ -180,9 +178,8 @@ class CrossfadePlayer(
                 clearMediaItems()
             }
             releaseOutgoing()
-            val future = super.handleSetMediaItems(mediaItems, startIndex, startPositionMs)
             applyGainImmediately(gain)
-            return future
+            return super.handleSetMediaItems(mediaItems, startIndex, startPositionMs)
         }
         // 新歌跳过开头静音，直接从有效开头起播
         return startCrossfade(mediaItems, startIndex, maxOf(startPositionMs, startOffsetMs), fadeMs, gain)
@@ -209,17 +206,7 @@ class CrossfadePlayer(
     }
 
     override fun handleSetVolume(volume: Float, volumeOperationType: Int): ListenableFuture<*> {
-        val target = volume.coerceIn(0f, 1f)
-        // 新歌还在缓冲时增益属于它，接管后再生效
-        if (pendingIncoming != null) {
-            pendingGain = target
-        } else if (target != trackGain) {
-            trackGain = target
-            gainRampFrom = active.volume
-            gainRampStartElapsedMs = SystemClock.elapsedRealtime()
-            handler.removeCallbacks(gainStep)
-            handler.post(gainStep)
-        }
+        // 音量由淡化包络独占
         return Futures.immediateVoidFuture()
     }
 
@@ -287,6 +274,8 @@ class CrossfadePlayer(
         val incoming = other(active)
         incoming.stop()
         incoming.volume = 0f
+        // 起播前设好，首帧即正确增益
+        gainStateFor(incoming)?.setGainImmediate(gain)
         incoming.repeatMode = active.repeatMode
         incoming.setMediaItems(mediaItems, startIndex, startPositionMs)
         incoming.playWhenReady = true
@@ -309,7 +298,6 @@ class CrossfadePlayer(
         outgoingStartGain = previous.volume
         fadeStartElapsedMs = SystemClock.elapsedRealtime()
         fadeDurationMs = pendingFadeMs.coerceAtLeast(1L)
-        handler.removeCallbacks(gainStep)
         trackGain = pendingGain
         handler.post(fadeStep)
         finishPending()
@@ -327,9 +315,8 @@ class CrossfadePlayer(
         val incoming = pendingIncoming ?: return
         val previous = active
         takeOver(incoming)
-        handler.removeCallbacks(gainStep)
         trackGain = pendingGain
-        incoming.volume = trackGain
+        incoming.volume = 1f
         if (!playWhenReady) incoming.playWhenReady = false
         previous.stop()
         previous.clearMediaItems()
@@ -344,17 +331,32 @@ class CrossfadePlayer(
         future?.set(Unit)
     }
 
-    // 中止淡化：停掉淡出方，当前播放器恢复到曲目增益
     private fun releaseOutgoing() {
         val hadOutgoing = outgoing != null
         stopOutgoing()
-        if (hadOutgoing) active.volume = trackGain
+        if (hadOutgoing) active.volume = 1f
     }
 
     private fun applyGainImmediately(gain: Float) {
-        handler.removeCallbacks(gainStep)
         trackGain = gain
-        active.volume = gain
+        gainStateFor(active)?.setGainImmediate(gain)
+        active.volume = 1f
+    }
+
+    private fun applyTrackGain(target: Float, immediate: Boolean) {
+        val incoming = pendingIncoming
+        if (incoming != null) {
+            pendingGain = target
+            gainStateFor(incoming)?.setGainImmediate(target)
+            return
+        }
+        if (immediate) {
+            trackGain = target
+            gainStateFor(active)?.setGainImmediate(target)
+        } else if (target != trackGain) {
+            trackGain = target
+            gainStateFor(active)?.setGainSmooth(target)
+        }
     }
 
     private fun stopOutgoing() {
@@ -404,7 +406,7 @@ class CrossfadePlayer(
 private class TransformedTimeline(
     private val timeline: Timeline,
     private val activeMediaItemIndex: Int,
-    private val transformer: (MediaMetadata) -> MediaMetadata
+    private val transformer: (String?, MediaMetadata) -> MediaMetadata
 ) : Timeline() {
 
     override fun getWindowCount(): Int = timeline.windowCount
@@ -434,7 +436,7 @@ private class TransformedTimeline(
         if (windowIndex == activeMediaItemIndex || activeMediaItemIndex == -1) {
             val originalItem = w.mediaItem
             w.mediaItem = originalItem.buildUpon()
-                .setMediaMetadata(transformer(originalItem.mediaMetadata))
+                .setMediaMetadata(transformer(originalItem.mediaId, originalItem.mediaMetadata))
                 .build()
         }
         return w
